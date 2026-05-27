@@ -3,7 +3,6 @@ import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
-const STAFF = ["Staff 1", "Staff 2", "Staff 3"];
 
 const STEPS = [
   { key: "cleaning", icon: "🧹", label: "Kennel Cleaning", tasks: ["Remove waste & rubbish", "Wash & disinfect floor", "Replace bedding / blankets", "Ventilate kennel"] },
@@ -15,40 +14,61 @@ const STEPS = [
 const todayKey = new Date().toISOString().split("T")[0];
 const todayLabel = new Date().toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-function initChecks() {
-  const c: Record<string, Record<string, Record<number, boolean>>> = {};
-  KENNELS.forEach(k => { c[k] = {}; STEPS.forEach(s => { c[k][s.key] = {}; s.tasks.forEach((_, i) => { c[k][s.key][i] = false; }); }); });
+type Checks = Record<string, Record<string, Record<number, boolean>>>;
+
+function initChecks(): Checks {
+  const c: Checks = {};
+  KENNELS.forEach(k => {
+    c[k] = {};
+    STEPS.forEach(s => {
+      c[k][s.key] = {};
+      s.tasks.forEach((_, i) => { c[k][s.key][i] = false; });
+    });
+  });
   return c;
+}
+
+function mergeChecks(saved: any): Checks {
+  const base = initChecks();
+  if (!saved || typeof saved !== "object") return base;
+  KENNELS.forEach(k => {
+    if (saved[k] && typeof saved[k] === "object") {
+      STEPS.forEach(s => {
+        if (saved[k][s.key] && typeof saved[k][s.key] === "object") {
+          s.tasks.forEach((_, i) => {
+            if (typeof saved[k][s.key][i] === "boolean") {
+              base[k][s.key][i] = saved[k][s.key][i];
+            }
+          });
+        }
+      });
+    }
+  });
+  return base;
 }
 
 export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 3"] }: { staffNames?: string[] }) {
   const [activeKennel, setActiveKennel] = useState(KENNELS[0]);
   const [dogNames, setDogNames] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
   const [assignedStaff, setAssignedStaff] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
-  const [checks, setChecks] = useState(initChecks);
+  const [checks, setChecks] = useState<Checks>(initChecks);
   const [notes, setNotes] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
   const [view, setView] = useState<"overview" | "detail">("overview");
-  const [staffFilter, setStaffFilter] = useState("All");  const [loading, setLoading] = useState(true);
+  const [staffFilter, setStaffFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
   useEffect(() => {
     const load = async () => {
       try {
-        const ref = doc(db, "journals", todayKey);
-        const snap = await getDoc(ref);
+        const snap = await getDoc(doc(db, "journals", todayKey));
         if (snap.exists()) {
           const data = snap.data();
-          if (data.checks) {
-  const merged = initChecks();
-  Object.keys(data.checks).forEach(k => {
-    if (merged[k]) merged[k] = { ...merged[k], ...data.checks[k] };
-  });
-  setChecks(merged);
-}
-          if (data.dogNames) setDogNames(data.dogNames);
-          if (data.assignedStaff) setAssignedStaff(data.assignedStaff);
-          if (data.notes) setNotes(data.notes);
+          if (data.checks) setChecks(mergeChecks(data.checks));
+          if (data.dogNames) setDogNames(prev => ({ ...prev, ...data.dogNames }));
+          if (data.assignedStaff) setAssignedStaff(prev => ({ ...prev, ...data.assignedStaff }));
+          if (data.notes) setNotes(prev => ({ ...prev, ...data.notes }));
         }
       } catch (e) { console.error(e); }
       setLoading(false);
@@ -60,7 +80,7 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
     setSaving(true);
     try {
       await setDoc(doc(db, "journals", todayKey), { checks, dogNames, assignedStaff, notes, updatedAt: new Date().toISOString() });
-      setSavedMsg("✓ Saved to Firebase");
+      setSavedMsg("✓ Saved");
       setTimeout(() => setSavedMsg(""), 3000);
     } catch (e) { setSavedMsg("Error saving!"); }
     setSaving(false);
@@ -76,13 +96,20 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
   const progress = (kennel: string) => {
     let total = 0, done = 0;
-    STEPS.forEach(s => s.tasks.forEach((_, i) => { total++; if (checks[kennel]?.[s.key]?.[i]) done++; }));
-    return Math.round((done / total) * 100);
+    STEPS.forEach(s => s.tasks.forEach((_, i) => {
+      total++;
+      if (checks[kennel]?.[s.key]?.[i]) done++;
+    }));
+    return total === 0 ? 0 : Math.round((done / total) * 100);
   };
 
   const stepProgress = (kennel: string, stepKey: string, tasks: string[]) => {
     const done = tasks.filter((_, i) => checks[kennel]?.[stepKey]?.[i]).length;
     return { done, total: tasks.length };
+  };
+
+  const getCheck = (kennel: string, step: string, idx: number) => {
+    return checks[kennel]?.[step]?.[idx] ?? false;
   };
 
   const filteredKennels = staffFilter === "All" ? KENNELS : KENNELS.filter(k => assignedStaff[k] === staffFilter);
@@ -96,7 +123,6 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
   return (
     <div style={{ fontFamily: "var(--font-sans)", color: "var(--color-text-primary)", maxWidth: 680, margin: "0 auto", padding: "16px 12px" }}>
-
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Daily Care Journal</div>
         <div style={{ fontSize: 18, fontWeight: 500 }}>{todayLabel}</div>
@@ -133,17 +159,17 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
             {filteredKennels.map(k => {
               const p = progress(k); const done = p === 100;
               return (
-                <div key={k} onClick={() => { setActiveKennel(k); setView("detail"); }} style={{ background: done ? "#E1F5EE" : "var(--color-background-primary)", border: `1px solid ${done ? "#5DCAA5" : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-lg)", padding: "12px", cursor: "pointer", transition: "all 0.15s" }}>
+                <div key={k} onClick={() => { setActiveKennel(k); setView("detail"); }} style={{ background: done ? "#E1F5EE" : "var(--color-background-primary)", border: `1px solid ${done ? "#5DCAA5" : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-lg)", padding: "12px", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 500, fontSize: 13, color: done ? "#085041" : "var(--color-text-primary)" }}>{k}</span>
+                    <span style={{ fontWeight: 500, fontSize: 13 }}>{k}</span>
                     <span style={{ fontSize: 16 }}>{done ? "✅" : "○"}</span>
                   </div>
-                  {dogNames[k] && <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-secondary)", marginBottom: 4 }}>🐶 {dogNames[k]}</div>}
-                  {assignedStaff[k] && <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedStaff[k].split(" ").slice(-2).join(" ")}</div>}
-                  <div style={{ height: 5, background: done ? "#9FE1CB" : "var(--color-border-tertiary)", borderRadius: 99 }}>
-                    <div style={{ height: "100%", width: p + "%", background: done ? "#1D9E75" : "#7F77DD", borderRadius: 99, transition: "width 0.3s" }} />
+                  {dogNames[k] && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>🐶 {dogNames[k]}</div>}
+                  {assignedStaff[k] && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedStaff[k]}</div>}
+                  <div style={{ height: 5, background: "var(--color-border-tertiary)", borderRadius: 99 }}>
+                    <div style={{ height: "100%", width: p + "%", background: done ? "#1D9E75" : "#7F77DD", borderRadius: 99 }} />
                   </div>
-                  <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-tertiary)", marginTop: 4 }}>{p}%</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 4 }}>{p}%</div>
                 </div>
               );
             })}
@@ -164,11 +190,11 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 160, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>🐶 Dog name:</span>
-              <input value={dogNames[activeKennel]} onChange={e => setDogNames(p => ({ ...p, [activeKennel]: e.target.value }))} placeholder="Enter dog name..." style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }} />
+              <input value={dogNames[activeKennel] || ""} onChange={e => setDogNames(p => ({ ...p, [activeKennel]: e.target.value }))} placeholder="Enter dog name..." style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }} />
             </div>
             <div style={{ flex: 1, minWidth: 160, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>👤 Staff:</span>
-              <select value={assignedStaff[activeKennel]} onChange={e => setAssignedStaff(p => ({ ...p, [activeKennel]: e.target.value }))} style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }}>
+              <select value={assignedStaff[activeKennel] || ""} onChange={e => setAssignedStaff(p => ({ ...p, [activeKennel]: e.target.value }))} style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }}>
                 <option value="">-- Select staff --</option>
                 {staffNames.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -177,7 +203,8 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {STEPS.map(s => {
-              const { done, total } = stepProgress(activeKennel, s.key, s.tasks); const allDone = done === total;
+              const { done, total } = stepProgress(activeKennel, s.key, s.tasks);
+              const allDone = done === total;
               return (
                 <div key={s.key} style={{ border: `1px solid ${allDone ? "#5DCAA5" : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-lg)", overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: allDone ? "#E1F5EE" : "var(--color-background-secondary)" }}>
@@ -188,14 +215,17 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
                     <span style={{ fontSize: 12, color: allDone ? "#0F6E56" : "var(--color-text-tertiary)" }}>{done}/{total}</span>
                   </div>
                   <div style={{ padding: "8px 14px 10px", background: "var(--color-background-primary)" }}>
-                    {s.tasks.map((task, i) => (
-                      <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: i < s.tasks.length - 1 ? "1px solid var(--color-border-tertiary)" : "none", cursor: "pointer" }}>
-                        <div onClick={() => toggle(activeKennel, s.key, i)} style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, border: checks[activeKennel]?.[s.key]?.[i] ? "2px solid #1D9E75" : "2px solid #888780", background: checks[activeKennel]?.[s.key]?.[i] ? "#1D9E75" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", cursor: "pointer", boxSizing: "border-box" }}>
-                          {checks[activeKennel]?.[s.key]?.[i] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1 }}>✓</span>}
-                        </div>
-                        <span style={{ fontSize: 13, color: checks[activeKennel]?.[s.key]?.[i] ? "var(--color-text-tertiary)" : "var(--color-text-primary)", textDecoration: checks[activeKennel]?.[s.key]?.[i] ? "line-through" : "none", transition: "all 0.15s" }}>{task}</span>
-                      </label>
-                    ))}
+                    {s.tasks.map((task, i) => {
+                      const checked = getCheck(activeKennel, s.key, i);
+                      return (
+                        <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: i < s.tasks.length - 1 ? "1px solid var(--color-border-tertiary)" : "none", cursor: "pointer" }}>
+                          <div onClick={() => toggle(activeKennel, s.key, i)} style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, border: checked ? "2px solid #1D9E75" : "2px solid #888780", background: checked ? "#1D9E75" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", cursor: "pointer", boxSizing: "border-box" }}>
+                            {checked && <span style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                          </div>
+                          <span style={{ fontSize: 13, color: checked ? "var(--color-text-tertiary)" : "var(--color-text-primary)", textDecoration: checked ? "line-through" : "none" }}>{task}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -204,7 +234,7 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>📝 Notes ({dogNames[activeKennel] || activeKennel})</div>
-            <textarea value={notes[activeKennel]} onChange={e => setNotes(p => ({ ...p, [activeKennel]: e.target.value }))} placeholder="Note symptoms, special diet, vaccination schedule..." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-md)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, resize: "vertical", outline: "none", lineHeight: 1.6, fontFamily: "var(--font-sans)" }} />
+            <textarea value={notes[activeKennel] || ""} onChange={e => setNotes(p => ({ ...p, [activeKennel]: e.target.value }))} placeholder="Note symptoms, special diet, vaccination schedule..." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-md)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, resize: "vertical", outline: "none", lineHeight: 1.6, fontFamily: "var(--font-sans)" }} />
           </div>
         </>
       )}
