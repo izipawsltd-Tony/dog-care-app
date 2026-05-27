@@ -6,6 +6,12 @@ const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 const BREED_LIST = ["Labrador Retriever","German Shepherd","Golden Retriever","Border Collie","French Bulldog","Bulldog","Poodle","Beagle","Rottweiler","Siberian Husky","Other"];
 const DOC_TYPES = ["Vet Records / Vaccination Book","Breed Certificate","Test Results","Hip and Elbow Scores","Other"];
 const BREED_MATING_WINDOW: Record<string, {from:number;to:number}> = {"Labrador Retriever":{from:10,to:14},"German Shepherd":{from:12,to:15},"default":{from:10,to:14}};
+const BREED_CYCLE: Record<string, {days:number;label:string}> = {
+  "Labrador Retriever": {days:182, label:"~6 months"},
+  "German Shepherd": {days:182, label:"~6 months"},
+  "default": {days:182, label:"~6 months"},
+};
+const getBreedCycle = (breed: string) => BREED_CYCLE[breed] || BREED_CYCLE["default"];
 const WHELP_TOLERANCE = 3;
 const REMINDER_OPTIONS = [{label:"7 days before",days:7},{label:"14 days before",days:14},{label:"1 month before",days:30},{label:"2 months before",days:60},{label:"3 months before",days:90}];
 const CARE_STEPS = [{key:"cleaning",icon:"🧹",label:"Cleaning"},{key:"feeding",icon:"🍖",label:"Feeding"},{key:"grooming",icon:"🛁",label:"Grooming"},{key:"health",icon:"🩺",label:"Health"}];
@@ -380,9 +386,20 @@ export default function DogProfile() {
                       <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Heat Cycle</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                         <div>{lbl("Last Heat Date")}
-                          <input type="date" value={newHeat.lastHeat} onChange={e=>{const v=e.target.value;const w=getMatingWindow(activeDog.breed);setNewHeat(p=>({...p,lastHeat:v,readyToMate:v?addDays(v,w.from):p.readyToMate}));}} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
+                          <input type="date" value={newHeat.lastHeat} onChange={e=>{
+                            const v=e.target.value;
+                            const w=getMatingWindow(activeDog.breed);
+                            const cycle=getBreedCycle(activeDog.breed);
+                            const estNextHeat = v ? addDays(v, cycle.days) : "";
+                            setNewHeat(p=>({...p,lastHeat:v,readyToMate:v?addDays(v,w.from):p.readyToMate,nextHeat:estNextHeat}));
+                          }} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
                         </div>
-                        <div>{lbl("Next Heat (estimated)")}{inp(newHeat.nextHeat,v=>setNewHeat(p=>({...p,nextHeat:v})),"","date")}</div>
+                        <div>{lbl("Next Heat (estimated)")}
+                          <div style={{position:"relative"}}>
+                            <input type="date" value={newHeat.nextHeat} onChange={e=>setNewHeat(p=>({...p,nextHeat:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1.5px solid #AFA9EC",background:"#EEEDFE",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
+                            {newHeat.lastHeat && <div style={{fontSize:10,color:"#534AB7",marginTop:2}}>Auto-calculated: {getBreedCycle(activeDog.breed).label} cycle{activeDog.breed ? ` (${activeDog.breed})` : ""}</div>}
+                          </div>
+                        </div>
                         <div>{lbl("Cycle Length (months)")}{inp(newHeat.cycleLength,v=>setNewHeat(p=>({...p,cycleLength:v})),"6")}</div>
                       </div>
                       <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:4}}>Mating</div>
