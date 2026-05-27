@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
-const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
+const DEFAULT_KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 
 const STEPS = [
   { key: "cleaning", icon: "🧹", label: "Kennel Cleaning", tasks: ["Remove waste & rubbish", "Wash & disinfect floor", "Replace bedding / blankets", "Ventilate kennel"] },
@@ -16,9 +16,9 @@ const todayLabel = new Date().toLocaleDateString("en-AU", { weekday: "long", yea
 
 type Checks = Record<string, Record<string, Record<number, boolean>>>;
 
-function initChecks(): Checks {
+function initChecksForKennels(kennels: string[]): Checks {
   const c: Checks = {};
-  KENNELS.forEach(k => {
+  kennels.forEach(k => {
     c[k] = {};
     STEPS.forEach(s => {
       c[k][s.key] = {};
@@ -28,10 +28,10 @@ function initChecks(): Checks {
   return c;
 }
 
-function mergeChecks(saved: any): Checks {
-  const base = initChecks();
+function mergeChecks(saved: any, kennels: string[]): Checks {
+  const base = initChecksForKennels(kennels);
   if (!saved || typeof saved !== "object") return base;
-  KENNELS.forEach(k => {
+  kennels.forEach(k => {
     if (saved[k] && typeof saved[k] === "object") {
       STEPS.forEach(s => {
         if (saved[k][s.key] && typeof saved[k][s.key] === "object") {
@@ -48,16 +48,22 @@ function mergeChecks(saved: any): Checks {
 }
 
 export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 3"] }: { staffNames?: string[] }) {
-  const [activeKennel, setActiveKennel] = useState(KENNELS[0]);
-  const [dogNames, setDogNames] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
-  const [assignedStaff, setAssignedStaff] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
-  const [checks, setChecks] = useState<Checks>(initChecks);
-  const [notes, setNotes] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
+  const [kennels, setKennels] = useState<string[]>(DEFAULT_KENNELS);
+  const [activeKennel, setActiveKennel] = useState(DEFAULT_KENNELS[0]);
+  const [dogNames, setDogNames] = useState<Record<string, string>>({});
+  const [assignedStaff, setAssignedStaff] = useState<Record<string, string>>({});
+  const [checks, setChecks] = useState<Checks>(() => initChecksForKennels(DEFAULT_KENNELS));
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [view, setView] = useState<"overview" | "detail">("overview");
   const [staffFilter, setStaffFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
+  const [showAddKennel, setShowAddKennel] = useState(false);
+  const [newKennelName, setNewKennelName] = useState("");
+  const [editingKennel, setEditingKennel] = useState<string | null>(null);
+  const [editKennelName, setEditKennelName] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -65,10 +71,13 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
         const snap = await getDoc(doc(db, "journals", todayKey));
         if (snap.exists()) {
           const data = snap.data();
-          if (data.checks) setChecks(mergeChecks(data.checks));
-          if (data.dogNames) setDogNames(prev => ({ ...prev, ...data.dogNames }));
-          if (data.assignedStaff) setAssignedStaff(prev => ({ ...prev, ...data.assignedStaff }));
-          if (data.notes) setNotes(prev => ({ ...prev, ...data.notes }));
+          const loadedKennels = data.kennels || DEFAULT_KENNELS;
+          setKennels(loadedKennels);
+          if (data.checks) setChecks(mergeChecks(data.checks, loadedKennels));
+          if (data.dogNames) setDogNames(data.dogNames);
+          if (data.assignedStaff) setAssignedStaff(data.assignedStaff);
+          if (data.notes) setNotes(data.notes);
+          setActiveKennel(loadedKennels[0]);
         }
       } catch (e) { console.error(e); }
       setLoading(false);
@@ -76,14 +85,70 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
     load();
   }, []);
 
-  const saveToFirebase = async () => {
+  const saveToFirebase = async (k = kennels, c = checks, dn = dogNames, as_ = assignedStaff, n = notes) => {
     setSaving(true);
     try {
-      await setDoc(doc(db, "journals", todayKey), { checks, dogNames, assignedStaff, notes, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, "journals", todayKey), { kennels: k, checks: c, dogNames: dn, assignedStaff: as_, notes: n, updatedAt: new Date().toISOString() });
       setSavedMsg("✓ Saved");
       setTimeout(() => setSavedMsg(""), 3000);
     } catch (e) { setSavedMsg("Error saving!"); }
     setSaving(false);
+  };
+
+  const addKennel = () => {
+    const name = newKennelName.trim();
+    if (!name || kennels.includes(name)) return;
+    const newKennels = [...kennels, name];
+    const newChecks = { ...checks, [name]: Object.fromEntries(STEPS.map(s => [s.key, Object.fromEntries(s.tasks.map((_, i) => [i, false]))])) };
+    setKennels(newKennels);
+    setChecks(newChecks);
+    setNewKennelName("");
+    setShowAddKennel(false);
+    setActiveKennel(name);
+    setView("detail");
+    saveToFirebase(newKennels, newChecks);
+  };
+
+  const removeKennel = (name: string) => {
+    const newKennels = kennels.filter(k => k !== name);
+    const newChecks = { ...checks };
+    delete newChecks[name];
+    const newDogNames = { ...dogNames };
+    delete newDogNames[name];
+    const newAssignedStaff = { ...assignedStaff };
+    delete newAssignedStaff[name];
+    const newNotes = { ...notes };
+    delete newNotes[name];
+    setKennels(newKennels);
+    setChecks(newChecks);
+    setDogNames(newDogNames);
+    setAssignedStaff(newAssignedStaff);
+    setNotes(newNotes);
+    setActiveKennel(newKennels[0] || "");
+    setConfirmRemove(null);
+    saveToFirebase(newKennels, newChecks, newDogNames, newAssignedStaff, newNotes);
+  };
+
+  const renameKennel = (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || kennels.includes(trimmed)) return;
+    const newKennels = kennels.map(k => k === oldName ? trimmed : k);
+    const newChecks: Checks = {};
+    Object.keys(checks).forEach(k => { newChecks[k === oldName ? trimmed : k] = checks[k]; });
+    const newDogNames: Record<string, string> = {};
+    Object.keys(dogNames).forEach(k => { newDogNames[k === oldName ? trimmed : k] = dogNames[k]; });
+    const newAssigned: Record<string, string> = {};
+    Object.keys(assignedStaff).forEach(k => { newAssigned[k === oldName ? trimmed : k] = assignedStaff[k]; });
+    const newNotes: Record<string, string> = {};
+    Object.keys(notes).forEach(k => { newNotes[k === oldName ? trimmed : k] = notes[k]; });
+    setKennels(newKennels);
+    setChecks(newChecks);
+    setDogNames(newDogNames);
+    setAssignedStaff(newAssigned);
+    setNotes(newNotes);
+    if (activeKennel === oldName) setActiveKennel(trimmed);
+    setEditingKennel(null);
+    saveToFirebase(newKennels, newChecks, newDogNames, newAssigned, newNotes);
   };
 
   const toggle = (kennel: string, step: string, idx: number) => {
@@ -96,10 +161,7 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
   const progress = (kennel: string) => {
     let total = 0, done = 0;
-    STEPS.forEach(s => s.tasks.forEach((_, i) => {
-      total++;
-      if (checks[kennel]?.[s.key]?.[i]) done++;
-    }));
+    STEPS.forEach(s => s.tasks.forEach((_, i) => { total++; if (checks[kennel]?.[s.key]?.[i]) done++; }));
     return total === 0 ? 0 : Math.round((done / total) * 100);
   };
 
@@ -108,36 +170,30 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
     return { done, total: tasks.length };
   };
 
-  const getCheck = (kennel: string, step: string, idx: number) => {
-    return checks[kennel]?.[step]?.[idx] ?? false;
-  };
+  const getCheck = (kennel: string, step: string, idx: number) => checks[kennel]?.[step]?.[idx] ?? false;
+  const filteredKennels = staffFilter === "All" ? kennels : kennels.filter(k => assignedStaff[k] === staffFilter);
+  const doneCount = kennels.filter(k => progress(k) === 100).length;
 
-  const filteredKennels = staffFilter === "All" ? KENNELS : KENNELS.filter(k => assignedStaff[k] === staffFilter);
-  const doneCount = KENNELS.filter(k => progress(k) === 100).length;
-
-  if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, fontFamily: "var(--font-sans)", color: "var(--color-text-secondary)" }}>
-      Loading data...
-    </div>
-  );
+  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, fontFamily: "var(--font-sans)", color: "var(--color-text-secondary)" }}>Loading data...</div>;
 
   return (
     <div style={{ fontFamily: "var(--font-sans)", color: "var(--color-text-primary)", maxWidth: 680, margin: "0 auto", padding: "16px 12px" }}>
+
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Daily Care Journal</div>
+        <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Daily Dog Care</div>
         <div style={{ fontSize: 18, fontWeight: 500 }}>{todayLabel}</div>
       </div>
 
       <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-lg)", padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 2 }}>Today's Progress</div>
-          <div style={{ fontSize: 22, fontWeight: 500, color: doneCount === 13 ? "#1D9E75" : "var(--color-text-primary)" }}>
-            {doneCount}<span style={{ fontSize: 14, fontWeight: 400, color: "var(--color-text-secondary)" }}>/13 kennels complete</span>
+          <div style={{ fontSize: 22, fontWeight: 500, color: doneCount === kennels.length ? "#1D9E75" : "var(--color-text-primary)" }}>
+            {doneCount}<span style={{ fontSize: 14, fontWeight: 400, color: "var(--color-text-secondary)" }}>/{kennels.length} kennels complete</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {savedMsg && <span style={{ fontSize: 12, color: "#1D9E75" }}>{savedMsg}</span>}
-          <button onClick={saveToFirebase} disabled={saving} style={{ padding: "7px 16px", borderRadius: "var(--border-radius-md)", border: "none", background: "#534AB7", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+          <button onClick={() => saveToFirebase()} disabled={saving} style={{ padding: "7px 16px", borderRadius: "var(--border-radius-md)", border: "none", background: "#534AB7", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
             {saving ? "Saving..." : "💾 Save"}
           </button>
           {["overview", "detail"].map(v => (
@@ -150,26 +206,57 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
 
       {view === "overview" && (
         <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
             {["All", ...staffNames].map(s => (
               <button key={s} onClick={() => setStaffFilter(s)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: staffFilter === s ? "1.5px solid #534AB7" : "1.5px solid var(--color-border-tertiary)", background: staffFilter === s ? "#EEEDFE" : "var(--color-background-primary)", color: staffFilter === s ? "#3C3489" : "var(--color-text-secondary)" }}>{s}</button>
             ))}
+            <button onClick={() => setShowAddKennel(true)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: "1.5px dashed var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-tertiary)", marginLeft: "auto" }}>+ Add Kennel</button>
           </div>
+
+          {showAddKennel && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input value={newKennelName} onChange={e => setNewKennelName(e.target.value)} onKeyDown={e => e.key === "Enter" && addKennel()} placeholder="Kennel name..." autoFocus style={{ flex: 1, padding: "8px 12px", borderRadius: "var(--border-radius-md)", border: "1.5px solid #534AB7", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }} />
+              <button onClick={addKennel} style={{ padding: "8px 16px", borderRadius: "var(--border-radius-md)", border: "none", background: "#534AB7", color: "#fff", fontSize: 13, cursor: "pointer" }}>Add</button>
+              <button onClick={() => { setShowAddKennel(false); setNewKennelName(""); }} style={{ padding: "8px 12px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
             {filteredKennels.map(k => {
               const p = progress(k); const done = p === 100;
               return (
-                <div key={k} onClick={() => { setActiveKennel(k); setView("detail"); }} style={{ background: done ? "#E1F5EE" : "var(--color-background-primary)", border: `1px solid ${done ? "#5DCAA5" : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-lg)", padding: "12px", cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 500, fontSize: 13 }}>{k}</span>
-                    <span style={{ fontSize: 16 }}>{done ? "✅" : "○"}</span>
+                <div key={k} style={{ background: done ? "#E1F5EE" : "var(--color-background-primary)", border: `1px solid ${done ? "#5DCAA5" : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-lg)", padding: "12px", position: "relative" }}>
+                  {editingKennel === k ? (
+                    <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                      <input value={editKennelName} onChange={e => setEditKennelName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") renameKennel(k, editKennelName); if (e.key === "Escape") setEditingKennel(null); }} autoFocus style={{ flex: 1, padding: "4px 6px", borderRadius: 4, border: "1.5px solid #534AB7", fontSize: 12, outline: "none" }} />
+                      <button onClick={() => renameKennel(k, editKennelName)} style={{ padding: "4px 8px", borderRadius: 4, border: "none", background: "#534AB7", color: "#fff", fontSize: 11, cursor: "pointer" }}>✓</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span onClick={() => { setActiveKennel(k); setView("detail"); }} style={{ fontWeight: 500, fontSize: 13, cursor: "pointer", flex: 1 }}>{k}</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => { setEditingKennel(k); setEditKennelName(k); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--color-text-tertiary)", padding: "0 2px" }}>✏️</button>
+                        <button onClick={() => setConfirmRemove(k)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#E24B4A", padding: "0 2px" }}>✕</button>
+                      </div>
+                    </div>
+                  )}
+                  {confirmRemove === k && (
+                    <div style={{ background: "#FCEBEB", borderRadius: 6, padding: "6px 8px", marginBottom: 6, fontSize: 11 }}>
+                      <div style={{ color: "#A32D2D", marginBottom: 4 }}>Remove {k}?</div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => removeKennel(k)} style={{ flex: 1, padding: "3px", borderRadius: 4, border: "none", background: "#E24B4A", color: "#fff", fontSize: 11, cursor: "pointer" }}>Yes</button>
+                        <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, padding: "3px", borderRadius: 4, border: "1px solid #ccc", background: "#fff", fontSize: 11, cursor: "pointer" }}>No</button>
+                      </div>
+                    </div>
+                  )}
+                  <div onClick={() => { setActiveKennel(k); setView("detail"); }} style={{ cursor: "pointer" }}>
+                    {dogNames[k] && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>🐶 {dogNames[k]}</div>}
+                    {assignedStaff[k] && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedStaff[k]}</div>}
+                    <div style={{ height: 5, background: "var(--color-border-tertiary)", borderRadius: 99 }}>
+                      <div style={{ height: "100%", width: p + "%", background: done ? "#1D9E75" : "#7F77DD", borderRadius: 99 }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 4 }}>{p}%</div>
                   </div>
-                  {dogNames[k] && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>🐶 {dogNames[k]}</div>}
-                  {assignedStaff[k] && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedStaff[k]}</div>}
-                  <div style={{ height: 5, background: "var(--color-border-tertiary)", borderRadius: 99 }}>
-                    <div style={{ height: "100%", width: p + "%", background: done ? "#1D9E75" : "#7F77DD", borderRadius: 99 }} />
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 4 }}>{p}%</div>
                 </div>
               );
             })}
@@ -177,10 +264,10 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
         </>
       )}
 
-      {view === "detail" && (
+      {view === "detail" && activeKennel && (
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            {KENNELS.map(k => (
+            {kennels.map(k => (
               <button key={k} onClick={() => setActiveKennel(k)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: activeKennel === k ? "1.5px solid #534AB7" : "1.5px solid var(--color-border-tertiary)", background: activeKennel === k ? "#EEEDFE" : progress(k) === 100 ? "#E1F5EE" : "var(--color-background-primary)", color: activeKennel === k ? "#3C3489" : progress(k) === 100 ? "#085041" : "var(--color-text-secondary)" }}>
                 {k} {progress(k) === 100 ? "✅" : `${progress(k)}%`}
               </button>
@@ -240,7 +327,7 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
       )}
 
       <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textAlign: "center", marginTop: 12 }}>
-        Daily Care Journal · {todayLabel} · Firebase
+        Daily Dog Care · {todayLabel} · Firebase
       </div>
     </div>
   );
