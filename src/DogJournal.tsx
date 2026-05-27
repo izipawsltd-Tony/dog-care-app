@@ -3,7 +3,6 @@ import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
-const STAFF = ["Staff 1", "Staff 2", "Staff 3"];
 
 const STEPS = [
   { key: "cleaning", icon: "🧹", label: "Kennel Cleaning", tasks: ["Remove waste & rubbish", "Wash & disinfect floor", "Replace bedding / blankets", "Ventilate kennel"] },
