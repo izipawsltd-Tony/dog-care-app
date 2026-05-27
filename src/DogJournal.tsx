@@ -3,7 +3,7 @@ import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
-
+const STAFF = ["Staff 1", "Staff 2", "Staff 3"];
 
 const STEPS = [
   { key: "cleaning", icon: "🧹", label: "Kennel Cleaning", tasks: ["Remove waste & rubbish", "Wash & disinfect floor", "Replace bedding / blankets", "Ventilate kennel"] },
@@ -21,15 +21,14 @@ function initChecks() {
   return c;
 }
 
-export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNames 2", "staffNames 3"] }: { staffNamesNames?: string[] }) {
+export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 3"] }: { staffNames?: string[] }) {
   const [activeKennel, setActiveKennel] = useState(KENNELS[0]);
   const [dogNames, setDogNames] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
-  const [assignedstaffNames, setAssignedstaffNames] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
+  const [assignedStaff, setAssignedStaff] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
   const [checks, setChecks] = useState(initChecks);
   const [notes, setNotes] = useState<Record<string, string>>(() => { const d: Record<string, string> = {}; KENNELS.forEach(k => { d[k] = ""; }); return d; });
   const [view, setView] = useState<"overview" | "detail">("overview");
-  const [staffNamesFilter, setstaffNamesFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
+  const [staffFilter, setStaffFilter] = useState("All");  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
@@ -42,7 +41,7 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
           const data = snap.data();
           if (data.checks) setChecks(data.checks);
           if (data.dogNames) setDogNames(data.dogNames);
-          if (data.assignedstaffNames) setAssignedstaffNames(data.assignedstaffNames);
+          if (data.assignedStaff) setAssignedStaff(data.assignedStaff);
           if (data.notes) setNotes(data.notes);
         }
       } catch (e) { console.error(e); }
@@ -54,7 +53,7 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
   const saveToFirebase = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, "journals", todayKey), { checks, dogNames, assignedstaffNames, notes, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, "journals", todayKey), { checks, dogNames, assignedStaff, notes, updatedAt: new Date().toISOString() });
       setSavedMsg("✓ Saved to Firebase");
       setTimeout(() => setSavedMsg(""), 3000);
     } catch (e) { setSavedMsg("Error saving!"); }
@@ -76,7 +75,7 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
     return { done, total: tasks.length };
   };
 
-  const filteredKennels = staffNamesFilter === "All" ? KENNELS : KENNELS.filter(k => assignedstaffNames[k] === staffNamesFilter);
+  const filteredKennels = staffFilter === "All" ? KENNELS : KENNELS.filter(k => assignedStaff[k] === staffFilter);
   const doneCount = KENNELS.filter(k => progress(k) === 100).length;
 
   if (loading) return (
@@ -117,7 +116,7 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
         <>
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {["All", ...staffNames].map(s => (
-              <button key={s} onClick={() => setstaffNamesFilter(s)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: staffNamesFilter === s ? "1.5px solid #534AB7" : "1.5px solid var(--color-border-tertiary)", background: staffNamesFilter === s ? "#EEEDFE" : "var(--color-background-primary)", color: staffNamesFilter === s ? "#3C3489" : "var(--color-text-secondary)" }}>{s}</button>
+              <button key={s} onClick={() => setStaffFilter(s)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: staffFilter === s ? "1.5px solid #534AB7" : "1.5px solid var(--color-border-tertiary)", background: staffFilter === s ? "#EEEDFE" : "var(--color-background-primary)", color: staffFilter === s ? "#3C3489" : "var(--color-text-secondary)" }}>{s}</button>
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
@@ -130,7 +129,7 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
                     <span style={{ fontSize: 16 }}>{done ? "✅" : "○"}</span>
                   </div>
                   {dogNames[k] && <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-secondary)", marginBottom: 4 }}>🐶 {dogNames[k]}</div>}
-                  {assignedstaffNames[k] && <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedstaffNames[k].split(" ").slice(-2).join(" ")}</div>}
+                  {assignedStaff[k] && <div style={{ fontSize: 11, color: done ? "#0F6E56" : "var(--color-text-tertiary)", marginBottom: 6 }}>👤 {assignedStaff[k].split(" ").slice(-2).join(" ")}</div>}
                   <div style={{ height: 5, background: done ? "#9FE1CB" : "var(--color-border-tertiary)", borderRadius: 99 }}>
                     <div style={{ height: "100%", width: p + "%", background: done ? "#1D9E75" : "#7F77DD", borderRadius: 99, transition: "width 0.3s" }} />
                   </div>
@@ -158,9 +157,9 @@ export default function DogJournal({ staffNamesNames = ["staffNames 1", "staffNa
               <input value={dogNames[activeKennel]} onChange={e => setDogNames(p => ({ ...p, [activeKennel]: e.target.value }))} placeholder="Enter dog name..." style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }} />
             </div>
             <div style={{ flex: 1, minWidth: 160, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>👤 staffNames:</span>
-              <select value={assignedstaffNames[activeKennel]} onChange={e => setAssignedstaffNames(p => ({ ...p, [activeKennel]: e.target.value }))} style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }}>
-                <option value="">-- Select staffNames --</option>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>👤 Staff:</span>
+              <select value={assignedStaff[activeKennel]} onChange={e => setAssignedStaff(p => ({ ...p, [activeKennel]: e.target.value }))} style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--border-radius-md)", border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none" }}>
+                <option value="">-- Select staff --</option>
                 {staffNames.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
