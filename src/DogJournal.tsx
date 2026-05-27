@@ -61,7 +61,11 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
   };
 
   const toggle = (kennel: string, step: string, idx: number) => {
-    setChecks(prev => ({ ...prev, [kennel]: { ...prev[kennel], [step]: { ...prev[kennel][step], [idx]: !prev[kennel][step][idx] } } }));
+    setChecks(prev => {
+      const k = prev[kennel] || {};
+      const s = k[step] || {};
+      return { ...prev, [kennel]: { ...k, [step]: { ...s, [idx]: !s[idx] } } };
+    });
   };
 
   const progress = (kennel: string) => {
