@@ -48,7 +48,18 @@ export default function DogProfile() {
 
   const activeDog = dogs.find(d => d.id === activeDogId) || null;
 
+  const [todayStatus, setTodayStatus] = useState<Record<string, any>>({});
+
   useEffect(() => {
+    const loadJournal = async () => {
+      try {
+        const todayKey = new Date().toISOString().split("T")[0];
+        const snap = await getDoc(doc(db, "journals", todayKey));
+        if (snap.exists()) setTodayStatus(snap.data());
+      } catch(e) { console.error(e); }
+    };
+    loadJournal();
+  }, []);
     const load = async () => {
       try {
         const snap = await getDoc(doc(db, "dogProfiles", "all"));
@@ -206,6 +217,55 @@ export default function DogProfile() {
 
           {tab==="info" && (
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+              {/* Today's Care Status */}
+              {activeDog.kennel && (() => {
+                const STEPS = [
+                  {key:"cleaning",icon:"🧹",label:"Cleaning"},
+                  {key:"feeding",icon:"🍖",label:"Feeding"},
+                  {key:"grooming",icon:"🛁",label:"Grooming"},
+                  {key:"health",icon:"🩺",label:"Health"},
+                ];
+                const kChecks = todayStatus?.checks?.[activeDog.kennel];
+                const TASK_COUNT = 4;
+                const stepDone = (key: string) => {
+                  if (!kChecks?.[key]) return 0;
+                  return Object.values(kChecks[key]).filter(Boolean).length;
+                };
+                const totalDone = STEPS.reduce((acc, s) => acc + stepDone(s.key), 0);
+                const totalAll = STEPS.length * TASK_COUNT;
+                const pct = Math.round((totalDone / totalAll) * 100);
+                const allDone = pct === 100;
+                return (
+                  <div style={{background: allDone ? "#E1F5EE" : "var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"12px 14px", border:`1px solid ${allDone ? "#5DCAA5" : "var(--color-border-tertiary)"}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontSize:13,fontWeight:500,color: allDone ? "#085041" : "var(--color-text-primary)"}}>📋 Today's Care — {activeDog.kennel}</div>
+                      <span style={{fontSize:13,fontWeight:500,color: allDone ? "#1D9E75" : "#534AB7"}}>{pct}% {allDone ? "✅" : ""}</span>
+                    </div>
+                    <div style={{height:5,background:"var(--color-border-tertiary)",borderRadius:99,marginBottom:10}}>
+                      <div style={{height:"100%",width:pct+"%",background: allDone ? "#1D9E75" : "#7F77DD",borderRadius:99,transition:"width 0.3s"}} />
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                      {STEPS.map(s => {
+                        const done = stepDone(s.key);
+                        const complete = done === TASK_COUNT;
+                        return (
+                          <div key={s.key} style={{textAlign:"center",padding:"6px 4px",borderRadius:6,background: complete ? "#C8F0E2" : "var(--color-background-primary)",border:`1px solid ${complete ? "#5DCAA5" : "var(--color-border-tertiary)"}`}}>
+                            <div style={{fontSize:16}}>{s.icon}</div>
+                            <div style={{fontSize:10,color: complete ? "#085041" : "var(--color-text-secondary)",marginTop:2}}>{s.label}</div>
+                            <div style={{fontSize:11,fontWeight:500,color: complete ? "#1D9E75" : "var(--color-text-tertiary)"}}>{done}/{TASK_COUNT}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {todayStatus?.dogNames?.[activeDog.kennel] && (
+                      <div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:8}}>
+                        Dog on record: {todayStatus.dogNames[activeDog.kennel]} · Staff: {todayStatus.assignedStaff?.[activeDog.kennel] || "—"}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div>{lbl("Name")}{inp(activeDog.name,v=>updateDog("name",v),"Buddy, Max...")}</div>
                 <div>{lbl("Breed")}
