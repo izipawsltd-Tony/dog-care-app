@@ -39,7 +39,13 @@ export default function DogJournal({ staffNames = ["Staff 1", "Staff 2", "Staff 
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const data = snap.data();
-          if (data.checks) setChecks(data.checks);
+          if (data.checks) {
+  const merged = initChecks();
+  Object.keys(data.checks).forEach(k => {
+    if (merged[k]) merged[k] = { ...merged[k], ...data.checks[k] };
+  });
+  setChecks(merged);
+}
           if (data.dogNames) setDogNames(data.dogNames);
           if (data.assignedStaff) setAssignedStaff(data.assignedStaff);
           if (data.notes) setNotes(data.notes);
