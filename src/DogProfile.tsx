@@ -8,6 +8,8 @@ const DOC_TYPES = ["Vet Records / Vaccination Book","Breed Certificate","Test Re
 const BREED_MATING_WINDOW: Record<string, {from:number;to:number}> = {"Labrador Retriever":{from:10,to:14},"German Shepherd":{from:12,to:15},"default":{from:10,to:14}};
 const WHELP_TOLERANCE = 3;
 const REMINDER_OPTIONS = [{label:"7 days before",days:7},{label:"14 days before",days:14},{label:"1 month before",days:30},{label:"2 months before",days:60},{label:"3 months before",days:90}];
+const CARE_STEPS = [{key:"cleaning",icon:"🧹",label:"Cleaning"},{key:"feeding",icon:"🍖",label:"Feeding"},{key:"grooming",icon:"🛁",label:"Grooming"},{key:"health",icon:"🩺",label:"Health"}];
+const TASK_COUNT = 4;
 
 const getMatingWindow = (breed: string) => BREED_MATING_WINDOW[breed] || BREED_MATING_WINDOW["default"];
 const addDays = (dateStr: string, days: number) => { if (!dateStr) return ""; const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().split("T")[0]; };
@@ -29,6 +31,7 @@ export default function DogProfile() {
   const [loadingData, setLoadingData] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [todayJournal, setTodayJournal] = useState<any>(null);
   const [activeDogId, setActiveDogId] = useState<string|null>(null);
   const [tab, setTab] = useState<"info"|"vaccine"|"health"|"heat"|"gallery"|"docs"|"reminders">("info");
   const [saved, setSaved] = useState(false);
@@ -48,26 +51,19 @@ export default function DogProfile() {
 
   const activeDog = dogs.find(d => d.id === activeDogId) || null;
 
-  const [todayStatus, setTodayStatus] = useState<Record<string, any>>({});
-
   useEffect(() => {
-    const loadJournal = async () => {
+    const loadAll = async () => {
       try {
-        const todayKey = new Date().toISOString().split("T")[0];
-        const snap = await getDoc(doc(db, "journals", todayKey));
-        if (snap.exists()) setTodayStatus(snap.data());
-      } catch(e) { console.error(e); }
-    };
-    loadJournal();
-  }, []);
-    const load = async () => {
-      try {
-        const snap = await getDoc(doc(db, "dogProfiles", "all"));
-        if (snap.exists() && snap.data().dogs) setDogs(snap.data().dogs);
+        const [profileSnap, journalSnap] = await Promise.all([
+          getDoc(doc(db, "dogProfiles", "all")),
+          getDoc(doc(db, "journals", new Date().toISOString().split("T")[0])),
+        ]);
+        if (profileSnap.exists() && profileSnap.data().dogs) setDogs(profileSnap.data().dogs);
+        if (journalSnap.exists()) setTodayJournal(journalSnap.data());
       } catch(e) { console.error(e); }
       setLoadingData(false);
     };
-    load();
+    loadAll();
   }, []);
 
   const saveToFirebase = async (updatedDogs: Dog[]) => {
@@ -125,6 +121,19 @@ export default function DogProfile() {
     {k:"reminders",label:`🔔 Reminders${reminderCount>0?` (${reminderCount})`:""}`},
   ];
 
+  // Today's care status for a kennel
+  const getTodayCare = (kennel: string) => {
+    if (!todayJournal?.checks?.[kennel]) return null;
+    const kc = todayJournal.checks[kennel];
+    const steps = CARE_STEPS.map(s => ({
+      ...s,
+      done: kc[s.key] ? Object.values(kc[s.key]).filter(Boolean).length : 0,
+    }));
+    const totalDone = steps.reduce((a, s) => a + s.done, 0);
+    const pct = Math.round((totalDone / (CARE_STEPS.length * TASK_COUNT)) * 100);
+    return { steps, pct, allDone: pct === 100 };
+  };
+
   if (loadingData) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,fontFamily:"var(--font-sans)",color:"var(--color-text-secondary)"}}>Loading profiles...</div>;
 
   return (
@@ -165,19 +174,27 @@ export default function DogProfile() {
         <>
           {filteredDogs.length===0 && <div style={{textAlign:"center",padding:"40px 0",color:"var(--color-text-tertiary)",fontSize:13}}>{dogs.length===0?"No profiles yet — click + Add Dog to get started":"No results found"}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {filteredDogs.map(d => (
-              <div key={d.id} onClick={()=>{setActiveDogId(d.id);setTab("info");setSaved(false);}} style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-                <div style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",background:"var(--color-background-secondary)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {d.avatar ? <img src={d.avatar} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : <span style={{fontSize:22}}>🐶</span>}
+            {filteredDogs.map(d => {
+              const care = d.kennel ? getTodayCare(d.kennel) : null;
+              return (
+                <div key={d.id} onClick={()=>{setActiveDogId(d.id);setTab("info");setSaved(false);}} style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",background:"var(--color-background-secondary)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    {d.avatar ? <img src={d.avatar} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : <span style={{fontSize:22}}>🐶</span>}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:500,fontSize:14}}>{d.name||"Unnamed"}</div>
+                    <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>{[d.breed,d.kennel,d.dob&&age(d.dob)].filter(Boolean).join(" · ")}</div>
+                    {care && (
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+                        <div style={{height:4,width:60,background:"var(--color-border-tertiary)",borderRadius:99}}><div style={{height:"100%",width:care.pct+"%",background:care.allDone?"#1D9E75":"#7F77DD",borderRadius:99}} /></div>
+                        <span style={{fontSize:11,color:care.allDone?"#1D9E75":"var(--color-text-tertiary)"}}>{care.pct}% today {care.allDone?"✅":""}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--color-text-tertiary)"}}>{d.id}</div>
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:500,fontSize:14}}>{d.name||"Unnamed"}</div>
-                  <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>{[d.breed,d.kennel,d.dob&&age(d.dob)].filter(Boolean).join(" · ")}</div>
-                  <div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:2}}>{d.gallery.length>0&&`🖼️ ${d.gallery.length}  `}{d.documents.length>0&&`📁 ${d.documents.length}`}</div>
-                </div>
-                <div style={{fontSize:11,color:"var(--color-text-tertiary)"}}>{d.id}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
@@ -220,52 +237,38 @@ export default function DogProfile() {
 
               {/* Today's Care Status */}
               {activeDog.kennel && (() => {
-                const STEPS = [
-                  {key:"cleaning",icon:"🧹",label:"Cleaning"},
-                  {key:"feeding",icon:"🍖",label:"Feeding"},
-                  {key:"grooming",icon:"🛁",label:"Grooming"},
-                  {key:"health",icon:"🩺",label:"Health"},
-                ];
-                const kChecks = todayStatus?.checks?.[activeDog.kennel];
-                const TASK_COUNT = 4;
-                const stepDone = (key: string) => {
-                  if (!kChecks?.[key]) return 0;
-                  return Object.values(kChecks[key]).filter(Boolean).length;
-                };
-                const totalDone = STEPS.reduce((acc, s) => acc + stepDone(s.key), 0);
-                const totalAll = STEPS.length * TASK_COUNT;
-                const pct = Math.round((totalDone / totalAll) * 100);
-                const allDone = pct === 100;
+                const care = getTodayCare(activeDog.kennel);
+                if (!care) return <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",fontSize:13,color:"var(--color-text-tertiary)"}}>📋 No care data today for {activeDog.kennel}</div>;
                 return (
-                  <div style={{background: allDone ? "#E1F5EE" : "var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"12px 14px", border:`1px solid ${allDone ? "#5DCAA5" : "var(--color-border-tertiary)"}`}}>
+                  <div style={{background:care.allDone?"#E1F5EE":"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",border:`1px solid ${care.allDone?"#5DCAA5":"var(--color-border-tertiary)"}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                      <div style={{fontSize:13,fontWeight:500,color: allDone ? "#085041" : "var(--color-text-primary)"}}>📋 Today's Care — {activeDog.kennel}</div>
-                      <span style={{fontSize:13,fontWeight:500,color: allDone ? "#1D9E75" : "#534AB7"}}>{pct}% {allDone ? "✅" : ""}</span>
+                      <div style={{fontSize:13,fontWeight:500,color:care.allDone?"#085041":"var(--color-text-primary)"}}>📋 Today's Care — {activeDog.kennel}</div>
+                      <span style={{fontSize:13,fontWeight:500,color:care.allDone?"#1D9E75":"#534AB7"}}>{care.pct}% {care.allDone?"✅":""}</span>
                     </div>
                     <div style={{height:5,background:"var(--color-border-tertiary)",borderRadius:99,marginBottom:10}}>
-                      <div style={{height:"100%",width:pct+"%",background: allDone ? "#1D9E75" : "#7F77DD",borderRadius:99,transition:"width 0.3s"}} />
+                      <div style={{height:"100%",width:care.pct+"%",background:care.allDone?"#1D9E75":"#7F77DD",borderRadius:99}} />
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
-                      {STEPS.map(s => {
-                        const done = stepDone(s.key);
-                        const complete = done === TASK_COUNT;
+                      {care.steps.map(s => {
+                        const complete = s.done === TASK_COUNT;
                         return (
-                          <div key={s.key} style={{textAlign:"center",padding:"6px 4px",borderRadius:6,background: complete ? "#C8F0E2" : "var(--color-background-primary)",border:`1px solid ${complete ? "#5DCAA5" : "var(--color-border-tertiary)"}`}}>
+                          <div key={s.key} style={{textAlign:"center",padding:"6px 4px",borderRadius:6,background:complete?"#C8F0E2":"var(--color-background-primary)",border:`1px solid ${complete?"#5DCAA5":"var(--color-border-tertiary)"}`}}>
                             <div style={{fontSize:16}}>{s.icon}</div>
-                            <div style={{fontSize:10,color: complete ? "#085041" : "var(--color-text-secondary)",marginTop:2}}>{s.label}</div>
-                            <div style={{fontSize:11,fontWeight:500,color: complete ? "#1D9E75" : "var(--color-text-tertiary)"}}>{done}/{TASK_COUNT}</div>
+                            <div style={{fontSize:10,color:complete?"#085041":"var(--color-text-secondary)",marginTop:2}}>{s.label}</div>
+                            <div style={{fontSize:11,fontWeight:500,color:complete?"#1D9E75":"var(--color-text-tertiary)"}}>{s.done}/{TASK_COUNT}</div>
                           </div>
                         );
                       })}
                     </div>
-                    {todayStatus?.dogNames?.[activeDog.kennel] && (
+                    {todayJournal?.dogNames?.[activeDog.kennel] && (
                       <div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:8}}>
-                        Dog on record: {todayStatus.dogNames[activeDog.kennel]} · Staff: {todayStatus.assignedStaff?.[activeDog.kennel] || "—"}
+                        Dog on record: {todayJournal.dogNames[activeDog.kennel]} · Staff: {todayJournal.assignedStaff?.[activeDog.kennel]||"—"}
                       </div>
                     )}
                   </div>
                 );
               })()}
+
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div>{lbl("Name")}{inp(activeDog.name,v=>updateDog("name",v),"Buddy, Max...")}</div>
                 <div>{lbl("Breed")}
@@ -508,7 +511,7 @@ export default function DogProfile() {
           )}
 
           <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:8}}>
-            <button onClick={()=>setSaved(true)} style={{width:"100%",padding:"11px",borderRadius:"var(--border-radius-md)",border:"none",background:saved?"#1D9E75":"#534AB7",color:"#fff",fontSize:14,fontWeight:500,cursor:"pointer",transition:"background 0.2s"}}>{saved?"✓ Profile Saved":"💾 Save Profile"}</button>
+            <button onClick={()=>setSaved(true)} style={{width:"100%",padding:"11px",borderRadius:"var(--border-radius-md)",border:"none",background:saved?"#1D9E75":"#534AB7",color:"#fff",fontSize:14,fontWeight:500,cursor:"pointer"}}>{saved?"✓ Profile Saved":"💾 Save Profile"}</button>
             <button onClick={()=>saveToFirebase(dogs)} disabled={syncing} style={{width:"100%",padding:"11px",borderRadius:"var(--border-radius-md)",border:"none",background:syncing?"#888":"#0F6E56",color:"#fff",fontSize:14,fontWeight:500,cursor:"pointer"}}>{syncing?"Saving...":"☁️ Sync to Firebase"}</button>
           </div>
         </>
