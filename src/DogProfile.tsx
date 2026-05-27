@@ -711,6 +711,8 @@ export default function App() {
             {syncing ? "Saving..." : "☁️ Sync to Firebase"}
           </button>
           </button>
+        </>
       )}
     </div>
+  );
 }
