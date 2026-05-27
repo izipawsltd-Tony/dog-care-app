@@ -1,6 +1,4 @@
 import { useState } from "react";
-import DogJournal from "./DogJournal";
-import DogProfile from "./DogProfile";
 
 function DogProfile() {
   const [page, setPage] = useState<"journal" | "profile">("journal");
