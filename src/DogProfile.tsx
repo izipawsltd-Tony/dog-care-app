@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { db } from "./firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 
@@ -82,6 +84,9 @@ function genId() { return Date.now().toString(36).toUpperCase(); }
 
 export default function App() {
   const [dogs, setDogs] = useState<Dog[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
   const [activeDogId, setActiveDogId] = useState<string | null>(null);
   const [tab, setTab] = useState<"info" | "vaccine" | "health" | "gallery" | "docs" | "heat" | "reminders">("info");
   const [saved, setSaved] = useState(false);
@@ -101,22 +106,52 @@ export default function App() {
 
   const activeDog = dogs.find(d => d.id === activeDogId) || null;
 
+  // Load from Firebase on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db, "dogProfiles", "all"));
+        if (snap.exists() && snap.data().dogs) {
+          setDogs(snap.data().dogs);
+        }
+      } catch (e) { console.error(e); }
+      setLoadingData(false);
+    };
+    load();
+  }, []);
+
+  // Save all dogs to Firebase
+  const saveToFirebase = async (updatedDogs: Dog[]) => {
+    setSyncing(true);
+    try {
+      await setDoc(doc(db, "dogProfiles", "all"), { dogs: updatedDogs, updatedAt: new Date().toISOString() });
+      setSyncMsg("✓ Saved");
+      setTimeout(() => setSyncMsg(""), 2000);
+    } catch (e) { setSyncMsg("Error saving!"); }
+    setSyncing(false);
+  };
+
   const addDog = () => {
     const dog = newDog("DOG-" + genId());
-    setDogs(prev => [...prev, dog]);
+    const updated = [...dogs, dog];
+    setDogs(updated);
+    saveToFirebase(updated);
     setActiveDogId(dog.id);
     setTab("info");
     setSaved(false);
   };
 
   const updateDog = (field: keyof Dog, value: any) => {
-    setDogs(prev => prev.map(d => d.id === activeDogId ? { ...d, [field]: value } : d));
+    const updated = dogs.map(d => d.id === activeDogId ? { ...d, [field]: value } : d);
+    setDogs(updated);
     setSaved(false);
   };
 
   const deleteDog = (id: string) => {
     if (!confirm("Delete this profile?")) return;
-    setDogs(prev => prev.filter(d => d.id !== id));
+    const updated = dogs.filter(d => d.id !== id);
+    setDogs(updated);
+    saveToFirebase(updated);
     setActiveDogId(null);
   };
 
@@ -238,6 +273,12 @@ export default function App() {
     </div>
   );
 
+  if (loadingData) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, fontFamily: "var(--font-sans)", color: "var(--color-text-secondary)" }}>
+      Loading profiles...
+    </div>
+  );
+
   return (
     <div style={{ fontFamily: "var(--font-sans)", color: "var(--color-text-primary)", maxWidth: 680, margin: "0 auto", padding: "16px 12px" }}>
 
@@ -260,7 +301,10 @@ export default function App() {
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Dog Profiles</div>
           <div style={{ fontSize: 18, fontWeight: 500 }}>{dogs.length} dog{dogs.length !== 1 ? "s" : ""} registered</div>
         </div>
-        <button onClick={addDog} style={{ padding: "8px 16px", borderRadius: "var(--border-radius-md)", border: "none", background: "#534AB7", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Add Dog</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {syncMsg && <span style={{ fontSize: 12, color: "#1D9E75" }}>{syncMsg}</span>}
+          <button onClick={addDog} style={{ padding: "8px 16px", borderRadius: "var(--border-radius-md)", border: "none", background: "#534AB7", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Add Dog</button>
+        </div>
       </div>
 
       {/* Search + filter */}
@@ -662,6 +706,10 @@ export default function App() {
           {/* Save */}
           <button onClick={() => setSaved(true)} style={{ marginTop: 14, width: "100%", padding: "11px", borderRadius: "var(--border-radius-md)", border: "none", background: saved ? "#1D9E75" : "#534AB7", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer", transition: "background 0.2s" }}>
             {saved ? "✓ Profile Saved" : "💾 Save Profile"}
+          </button>
+          <button onClick={() => saveToFirebase(dogs)} disabled={syncing} style={{ marginTop: 8, width: "100%", padding: "11px", borderRadius: "var(--border-radius-md)", border: "none", background: syncing ? "#888" : "#1D9E75", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+            {syncing ? "Saving..." : "☁️ Sync to Firebase"}
+          </button>
           </button>
         </>
       )}
