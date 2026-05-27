@@ -704,10 +704,13 @@ export default function App() {
           )}
 
           {/* Save */}
-          <button onClick={() => setSaved(true)} style={{ marginTop: 14, width: "100%", padding: "11px", borderRadius: "var(--border-radius-md)", border: "none", background: saved ? "#1D9E75" : "#534AB7", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer", transition: "background 0.2s" }}>
-            {saved ? "✓ Profile Saved" : "💾 Save Profile"}
-          </button>
+          <button onClick={() => setSaved(true)} style={{ marginTop: 14, width: "100%", padding: "11px", borderRadius: "var(--border-radius-md)", border: "none", background: saved ? "#1D9E75" : "#534AB7", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer", transition: "background 0.2s" }}>{saved ? "✓ Profile Saved" : "💾 Save Profile"}</button>
           <button onClick={() => saveToFirebase(dogs)} disabled={syncing} style={{ marginTop: 8, width: "100%", padding: "11px", borderRadius: "var(--border-radius-md)", border: "none", background: syncing ? "#888" : "#1D9E75", color: "#fff", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>{syncing ? "Saving..." : "☁️ Sync to Firebase"}</button>
+        </>
+      )}
+    </div>
+  );
+}
           </button>
         </>
       )}
