@@ -415,7 +415,33 @@ function PuppyCard({puppy,litterId,litters,onChange}:{puppy:any;litterId:string;
     </div>
   );
 }
-
+function PuppyFilter({puppies,litterId,litters,onChange}:{puppies:any[];litterId:string;litters:any[];onChange:(l:any[])=>void}) {
+  const [filter,setFilter] = useState("All");
+  const counts:Record<string,number> = {All:puppies.length};
+  PUPPY_STATUSES.forEach(s=>{ counts[s]=puppies.filter((p:any)=>(p.status||"Available")===s).length; });
+  const visible = filter==="All" ? puppies : puppies.filter((p:any)=>(p.status||"Available")===filter);
+  return (
+    <div>
+      <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
+        {["All",...PUPPY_STATUSES].map(s=>{
+          const st = s==="All"?{bg:"#EEEDFE",color:"#3C3489"}:statusStyle(s);
+          const active = filter===s;
+          return counts[s]>0||s==="All"?(
+            <button key={s} onClick={()=>setFilter(s)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,cursor:"pointer",border:active?`1.5px solid ${st.color}`:"1.5px solid var(--color-border-tertiary)",background:active?st.bg:"var(--color-background-primary)",color:active?st.color:"var(--color-text-secondary)",fontWeight:active?500:400}}>
+              {s} {counts[s]>0&&`(${counts[s]})`}
+            </button>
+          ):null;
+        })}
+      </div>
+      {visible.length===0&&<div style={{textAlign:"center",padding:"12px 0",color:"var(--color-text-tertiary)",fontSize:12}}>No puppies{filter!=="All"?` with status "${filter}"`:" added yet"}</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {visible.map((puppy:any)=>(
+          <PuppyCard key={puppy.id} puppy={puppy} litterId={litterId} litters={litters} onChange={onChange}/>
+        ))}
+      </div>
+    </div>
+  );
+}
 // ---- Main LittersPage ----
 export default function LittersPage() {
   const [litters,setLitters] = useState<any[]>([]);
@@ -591,10 +617,7 @@ export default function LittersPage() {
 
                   {exp&&(
                     <div style={{padding:"14px",background:"var(--color-background-primary)",display:"flex",flexDirection:"column",gap:10}}>
-                      {litter.puppies.length===0&&<div style={{textAlign:"center",padding:"12px 0",color:"var(--color-text-tertiary)",fontSize:12}}>No puppies added yet</div>}
-                      {litter.puppies.map((puppy:any)=>(
-                        <PuppyCard key={puppy.id} puppy={puppy} litterId={litter.id} litters={litters} onChange={handleLittersChange}/>
-                      ))}
+                      <PuppyFilter puppies={litter.puppies} litterId={litter.id} litters={litters} onChange={handleLittersChange}/>
                       {addPuppyFor===litter.id?(
                         <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px",border:"1px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",gap:10}}>
                           <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>New Puppy</div>
