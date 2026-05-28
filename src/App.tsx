@@ -67,6 +67,9 @@ export default function App() {
   dogs.forEach(dog => {
     if (filterKennel !== "All" && dog.kennel !== filterKennel) return;
     dog.vaccines?.forEach((v: any) => {
+      if (!v.nextDate || v.completed) return;
+      const hasNewer = dog.vaccines.some((v2: any) => v2.name === v.name && v2.date > v.date);
+      if (hasNewer) return;
       const dl = daysUntil(v.nextDate);
       if (dl !== null && dl <= vaccineReminder.days) {
         vaccineAlerts.push({ dogName: dog.name, kennel: dog.kennel, name: v.name, dueDate: v.nextDate, daysLeft: dl });
