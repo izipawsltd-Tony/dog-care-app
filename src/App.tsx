@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "./firebase";
+import emailjs from "@emailjs/browser";
 import { doc, getDoc } from "firebase/firestore";
 import DogJournal from "./DogJournal";
 import DogProfile from "./DogProfile";
