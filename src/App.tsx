@@ -5,6 +5,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import emailjs from "@emailjs/browser";
 import DogJournal from "./DogJournal";
 import DogProfile from "./DogProfile";
+import LittersPage from "./LittersPage";
 import Login from "./Login";
 
 const REMINDER_OPTIONS = [
@@ -44,7 +45,7 @@ const urgencyLabel = (days: number) => {
 };
 
 export default function App() {
-  const [page, setPage] = useState<"journal" | "profile" | "reminders" | "settings">("journal");
+  const [page, setPage] = useState<"journal" | "profile" | "litters" | "reminders" | "settings">("journal");
   const [staffNames, setStaffNames] = useState<string[]>(DEFAULT_STAFF);
   const [saved, setSaved] = useState(false);
   const [dogs, setDogs] = useState<any[]>([]);
@@ -61,7 +62,6 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Send email reminders once per day
   useEffect(() => {
     const sendReminders = async () => {
       try {
@@ -102,7 +102,6 @@ export default function App() {
     sendReminders();
   }, []);
 
-  // Load dogs for reminders page
   useEffect(() => {
     const load = async () => {
       try {
@@ -113,9 +112,9 @@ export default function App() {
     if (page === "reminders") load();
   }, [page]);
 
-  // Compute all alerts
   const vaccineAlerts: any[] = [];
   const heatAlerts: any[] = [];
+  const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 
   dogs.forEach(dog => {
     if (filterKennel !== "All" && dog.kennel !== filterKennel) return;
@@ -137,11 +136,11 @@ export default function App() {
   });
 
   const totalAlerts = vaccineAlerts.length + heatAlerts.length;
-  const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 
   const NAV = [
     { k: "journal", label: "📋 Daily Journal" },
     { k: "profile", label: "🐶 Dog Profiles" },
+    { k: "litters", label: "🐾 Litters" },
     { k: "reminders", label: `🔔 Reminders${totalAlerts > 0 ? ` (${totalAlerts})` : ""}` },
     { k: "settings", label: "⚙️ Settings" },
   ];
@@ -153,10 +152,9 @@ export default function App() {
 
   return (
     <div>
-      {/* Navigation */}
       <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
         {NAV.map(n => (
-          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 100, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
+          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
             {n.label}
           </button>
         ))}
@@ -165,11 +163,10 @@ export default function App() {
         </button>
       </div>
 
-      {/* Pages */}
       {page === "journal" && <DogJournal staffNames={staffNames} />}
       {page === "profile" && <DogProfile />}
+      {page === "litters" && <LittersPage />}
 
-      {/* Reminders */}
       {page === "reminders" && (
         <div style={{ fontFamily: "sans-serif", maxWidth: 680, margin: "0 auto", padding: "16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -275,7 +272,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Settings */}
       {page === "settings" && (
         <div style={{ fontFamily: "sans-serif", maxWidth: 480, margin: "0 auto", padding: "24px 16px" }}>
           <div style={{ fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Settings</div>
