@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import emailjs from "@emailjs/browser";
 import { db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import DogJournal from "./DogJournal";
@@ -49,7 +50,49 @@ export default function App() {
   const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [filterKennel, setFilterKennel] = useState("All");
   const [filterType, setFilterType] = useState<"all" | "vaccine" | "heat">("all");
+useEffect(() => {
+  const sendReminders = async () => {
+    try {
+      const todayKey = new Date().toISOString().split("T")[0];
+      const lastSent = localStorage.getItem("lastReminderSent");
+      if (lastSent === todayKey) return;
 
+      const snap = await getDoc(doc(db, "dogProfiles", "all"));
+      if (!snap.exists()) return;
+      const dogs = snap.data().dogs || [];
+
+      const alerts: string[] = [];
+      dogs.forEach((dog: any) => {
+        dog.vaccines?.forEach((v: any) => {
+          if (!v.nextDate) return;
+          const dl = Math.ceil((new Date(v.nextDate).getTime() - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
+          if (dl >= 0 && dl <= 30) alerts.push(`💉 ${dog.name} — ${v.name} vaccine due in ${dl} day(s) (${v.nextDate})`);
+          if (dl < 0) alerts.push(`⚠️ ${dog.name} — ${v.name} vaccine OVERDUE by ${Math.abs(dl)} day(s)`);
+        });
+        dog.heatRecords?.forEach((h: any) => {
+          if (!h.nextHeat) return;
+          const dl = Math.ceil((new Date(h.nextHeat).getTime() - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
+          if (dl >= 0 && dl <= 30) alerts.push(`🌡️ ${dog.name} — Heat cycle expected in ${dl} day(s) (${h.nextHeat})`);
+        });
+      });
+
+      if (alerts.length === 0) return;
+
+      await emailjs.send(
+        "service_1xiiqii4",
+        "template_5xjualp",
+        {
+          date: new Date().toLocaleDateString("en-AU", {weekday:"long",year:"numeric",month:"long",day:"numeric"}),
+          reminders: alerts.join("\n"),
+        },
+        "EnExVywt47_FbtvbW"
+      );
+
+      localStorage.setItem("lastReminderSent", todayKey);
+    } catch(e) { console.error("Email reminder error:", e); }
+  };
+  sendReminders();
+}, []);
   useEffect(() => {
     const load = async () => {
       try {
