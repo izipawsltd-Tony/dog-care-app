@@ -139,7 +139,8 @@ export default function DogProfile() {
 
   const TABS = [
     {k:"info",label:"📋 Info"},{k:"vaccine",label:"💉 Vaccines"},{k:"worming",label:"🐛 Worming"},
-    {k:"health",label:"🩺 Health"},{k:"heat",label:"🌡️ Heat Cycle"},
+    {k:"health",label:"🩺 Health"},
+    ...(activeDog?.gender !== "Male" ? [{k:"heat",label:"🌡️ Heat Cycle"}] : []),
     {k:"gallery",label:"🖼️ Gallery"},{k:"docs",label:"📁 Documents"},
     {k:"reminders",label:`🔔 Reminders${reminderCount>0?` (${reminderCount})`:""}`},
   ];
