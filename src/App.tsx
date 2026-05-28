@@ -61,9 +61,6 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (authLoading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"sans-serif", color:"#888" }}>Loading...</div>;
-  if (!user) return <Login />;
-
   // Send email reminders once per day
   useEffect(() => {
     const sendReminders = async () => {
@@ -150,6 +147,9 @@ export default function App() {
   ];
 
   const handleLogout = async () => { await signOut(auth); };
+
+  if (authLoading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"sans-serif", color:"#888" }}>Loading...</div>;
+  if (!user) return <Login />;
 
   return (
     <div>
