@@ -14,7 +14,7 @@ const TASK_COUNT = 4;
 const VACCINE_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"C5":{intervalDays:365,label:"Annual"},"C3":{intervalDays:365,label:"Annual"},"Rabies":{intervalDays:365,label:"Annual"},"Lepto":{intervalDays:365,label:"Annual"},"Kennel Cough":{intervalDays:365,label:"Annual"},"Heartworm":{intervalDays:365,label:"Annual"},"Puppy 1st":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy 2nd":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy Final":{intervalDays:365,label:"Annual (after final)"}};
 const PUPPY_VACCINES = [{name:"Puppy 1st",weekMin:6,weekMax:7,note:"First vaccination at 6–7 weeks"},{name:"Puppy 2nd",weekMin:10,weekMax:12,note:"Second vaccination at 10–12 weeks"},{name:"Puppy Final",weekMin:14,weekMax:16,note:"Final vaccination at 14–16 weeks"}];
 
-const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
+const COLOUR_LIST = ["Black","Yellow","Chocolate","Cream","Golden","Red","Silver","White","Black & Tan","Black & White","Brown","Fawn","Brindle","Merle","Sable","Tricolour","Other"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
 const formatDate = (d:string) => { if(!d)return""; return new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}); };
@@ -276,7 +276,12 @@ export default function DogProfile() {
                     {BREED_LIST.map(b=><option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
-                <div>{lbl("Coat Colour")}{inp(activeDog.color,v=>updateDog("color",v),"Golden, White...")}</div>
+                <div>{lbl("Coat Colour")}
+                  <select value={activeDog.color} onChange={e=>updateDog("color",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}>
+                    <option value="">-- Select colour --</option>
+                    {COLOUR_LIST.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
                 <div>{lbl("Gender")}
                   <select value={activeDog.gender} onChange={e=>updateDog("gender",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}>
                     <option value="">-- Select --</option>
