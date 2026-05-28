@@ -19,8 +19,8 @@ const WORMING_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"Mi
 const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
-const formatDate = (d:string) => { if(!d)return""; return new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}); };
-const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${new Date(a).toLocaleDateString("en-AU",{day:"numeric",month:"short"})} – ${new Date(b).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"})}`; };
+const formatDate = (d:string) => { if(!d)return""; const [y,m,day]=d.split("-"); return `${day}-${m}-${y}`; };
+const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${formatDate(a)} – ${formatDate(b)}`; };
 const daysUntil = (d:string) => { if(!d)return null; return Math.ceil((new Date(d).getTime()-new Date().setHours(0,0,0,0))/(1000*60*60*24)); };
 
 type VaccineRecord = {id:string;name:string;date:string;nextDate:string};
@@ -291,6 +291,9 @@ export default function DogProfile() {
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
                 {activeDog.vaccines.map((v,i)=>{
                   const dl=daysUntil(v.nextDate); const isOD=dl!==null&&dl<0; const isSoon=dl!==null&&!isOD&&dl<=30;
+                  // Only show overdue if no newer vaccine with same name exists
+                  const hasNewer = activeDog.vaccines.some((v2,j)=>j!==i&&v2.name===v.name&&v2.date>v.date);
+                  const showOverdue = isOD && !hasNewer;
                   if(editVaccineIdx===i) return(
                     <div key={i} style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
                       <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Edit Vaccine</div>
@@ -306,11 +309,11 @@ export default function DogProfile() {
                     </div>
                   );
                   return(
-                    <div key={i} style={{background:"var(--color-background-primary)",border:`1px solid ${isOD?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div key={i} style={{background:"var(--color-background-primary)",border:`1px solid ${showOverdue?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:500}}>💉 {v.name}</div>
-                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {v.date}</div>
-                        {v.nextDate&&<div style={{fontSize:11,color:isOD?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{isOD?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{v.nextDate}</div>}
+                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {formatDate(v.date)}</div>
+                        {v.nextDate&&<div style={{fontSize:11,color:showOverdue?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{showOverdue?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{formatDate(v.nextDate)}</div>}
                       </div>
                       <div style={{display:"flex",gap:6}}>
                         <button onClick={()=>{setEditVaccineIdx(i);setEditVaccine({name:v.name,date:v.date,nextDate:v.nextDate});}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}>Edit</button>
@@ -388,8 +391,8 @@ export default function DogProfile() {
                     <div key={w.id} style={{background:"var(--color-background-primary)",border:`1px solid ${isOD?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:500}}>🐛 {w.name}</div>
-                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {w.date}</div>
-                        {w.nextDate&&<div style={{fontSize:11,color:isOD?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{isOD?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{w.nextDate}</div>}
+                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {formatDate(w.date)}</div>
+                        {w.nextDate&&<div style={{fontSize:11,color:isOD?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{isOD?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{formatDate(w.nextDate)}</div>}
                         {w.notes&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:1}}>📝 {w.notes}</div>}
                       </div>
                       <div style={{display:"flex",gap:6}}>
