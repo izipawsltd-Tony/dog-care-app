@@ -44,7 +44,7 @@ export default function DogProfile() {
   const [todayJournal,setTodayJournal] = useState<any>(null);
   const [activeDogId,setActiveDogId] = useState<string|null>(null);
   const [tab,setTab] = useState<"info"|"vaccine"|"worming"|"health"|"heat"|"litter"|"gallery"|"docs"|"reminders">("info");
-  const [saved,setSaved] = useState(false);
+  
   const [newVaccine,setNewVaccine] = useState({name:"",date:"",nextDate:""});
   const [showAddVaccine,setShowAddVaccine] = useState(false);
   const [showPuppySchedule,setShowPuppySchedule] = useState(false);
@@ -518,7 +518,7 @@ export default function DogProfile() {
             <LitterTab
               litters={activeDog.litters||[]}
               damName={activeDog.name}
-              onChange={(updated)=>updateDog("litters",updated)}
+              onChange={(updated:any)=>updateDog("litters",updated)}
             />
           )}
 
