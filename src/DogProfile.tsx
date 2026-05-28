@@ -5,7 +5,23 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 const BREED_LIST = ["Labrador Retriever","German Shepherd","Golden Retriever","Border Collie","French Bulldog","Bulldog","Poodle","Beagle","Rottweiler","Siberian Husky","Other"];
 const DOC_TYPES = ["Vet Records / Vaccination Book","Breed Certificate","Test Results","Hip and Elbow Scores","Other"];
-const BREED_MATING_WINDOW: Record<string, {from:number;to:number}> = {"Labrador Retriever":{from:10,to:14},"German Shepherd":{from:12,to:15},"default":{from:10,to:14}};
+const VACCINE_SCHEDULE: Record<string, {intervalDays: number; label: string}> = {
+  "C5": {intervalDays: 365, label: "Annual"},
+  "C3": {intervalDays: 365, label: "Annual"},
+  "Rabies": {intervalDays: 365, label: "Annual"},
+  "Lepto": {intervalDays: 365, label: "Annual"},
+  "Kennel Cough": {intervalDays: 365, label: "Annual"},
+  "Heartworm": {intervalDays: 365, label: "Annual"},
+  "Puppy 1st": {intervalDays: 28, label: "4 weeks (Puppy)"},
+  "Puppy 2nd": {intervalDays: 28, label: "4 weeks (Puppy)"},
+  "Puppy Final": {intervalDays: 365, label: "Annual (after final)"},
+};
+
+const PUPPY_VACCINES = [
+  {name: "Puppy 1st", weekMin: 6, weekMax: 7, note: "First vaccination at 6–7 weeks"},
+  {name: "Puppy 2nd", weekMin: 10, weekMax: 12, note: "Second vaccination at 10–12 weeks"},
+  {name: "Puppy Final", weekMin: 14, weekMax: 16, note: "Final vaccination at 14–16 weeks"},
+]; Record<string, {from:number;to:number}> = {"Labrador Retriever":{from:10,to:14},"German Shepherd":{from:12,to:15},"default":{from:10,to:14}};
 const BREED_CYCLE: Record<string, {days:number;label:string}> = {
   "Labrador Retriever": {days:182, label:"~6 months"},
   "German Shepherd": {days:182, label:"~6 months"},
@@ -42,9 +58,9 @@ export default function DogProfile() {
   const [tab, setTab] = useState<"info"|"vaccine"|"health"|"heat"|"gallery"|"docs"|"reminders">("info");
   const [saved, setSaved] = useState(false);
   const [newVaccine, setNewVaccine] = useState({name:"",date:"",nextDate:""});
+  const [showPuppySchedule, setShowPuppySchedule] = useState(false);
   const [showAddVaccine, setShowAddVaccine] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterKennel, setFilterKennel] = useState("All");
   const [lightbox, setLightbox] = useState<MediaItem|null>(null);
   const [newDoc, setNewDoc] = useState({name:"",docType:DOC_TYPES[0]});
   const [newHeat, setNewHeat] = useState({lastHeat:"",nextHeat:"",cycleLength:"",notes:"",readyToMate:"",matingDate:"",expectedWhelp:"",actualWhelp:""});
@@ -85,7 +101,7 @@ export default function DogProfile() {
   const addDog = () => { const dog = newDog("DOG-"+genId()); const updated = [...dogs, dog]; setDogs(updated); saveToFirebase(updated); setActiveDogId(dog.id); setTab("info"); setSaved(false); };
   const updateDog = (field: keyof Dog, value: any) => { setDogs(prev => prev.map(d => d.id===activeDogId ? {...d,[field]:value} : d)); setSaved(false); };
   const deleteDog = (id: string) => { if (!confirm("Delete this profile?")) return; const updated = dogs.filter(d => d.id!==id); setDogs(updated); saveToFirebase(updated); setActiveDogId(null); };
-  const addVaccine = () => { if (!newVaccine.name||!newVaccine.date||!activeDog) return; updateDog("vaccines",[...activeDog.vaccines,newVaccine]); setNewVaccine({name:"",date:"",nextDate:""}); setShowAddVaccine(false); };
+  const [filterKennel, setFilterKennel] = useState("All"); if (!newVaccine.name||!newVaccine.date||!activeDog) return; updateDog("vaccines",[...activeDog.vaccines,newVaccine]); setNewVaccine({name:"",date:"",nextDate:""}); setShowAddVaccine(false); };
 
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const r = new FileReader(); r.onload = ev => updateDog("avatar", ev.target?.result as string); r.readAsDataURL(file); };
   const handleGallery = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(file => { const r = new FileReader(); const isVideo = file.type.startsWith("video/"); r.onload = ev => { const item: MediaItem = {id:genId(),type:isVideo?"video":"image",url:ev.target?.result as string,name:file.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(prev => prev.map(d => d.id===activeDogId ? {...d,gallery:[...d.gallery,item]} : d)); }; r.readAsDataURL(file); }); setSaved(false); };
@@ -324,14 +340,79 @@ export default function DogProfile() {
               </div>
               {showAddVaccine ? (
                 <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
-                  <div>{lbl("Vaccine Name")}{inp(newVaccine.name,v=>setNewVaccine(p=>({...p,name:v})),"Rabies, C5, Lepto...")}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <div>{lbl("Date Given")}{inp(newVaccine.date,v=>setNewVaccine(p=>({...p,date:v})),"","date")}</div>
-                    <div>{lbl("Next Due Date")}{inp(newVaccine.nextDate,v=>setNewVaccine(p=>({...p,nextDate:v})),"","date")}</div>
+
+                  {/* Puppy Schedule Banner */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Add Vaccination Record</div>
+                    <button onClick={()=>setShowPuppySchedule(!showPuppySchedule)} style={{fontSize:11,padding:"4px 10px",borderRadius:99,border:"1.5px solid #534AB7",background:showPuppySchedule?"#534AB7":"var(--color-background-primary)",color:showPuppySchedule?"#fff":"#534AB7",cursor:"pointer"}}>🐾 Puppy Schedule</button>
                   </div>
+
+                  {/* Puppy Schedule */}
+                  {showPuppySchedule && (
+                    <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"10px 12px"}}>
+                      <div style={{fontSize:12,fontWeight:500,color:"#3C3489",marginBottom:8}}>Puppy Vaccination Schedule</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {PUPPY_VACCINES.map(pv => (
+                          <div key={pv.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff",borderRadius:6,padding:"8px 10px"}}>
+                            <div>
+                              <div style={{fontSize:12,fontWeight:500,color:"#3C3489"}}>{pv.name}</div>
+                              <div style={{fontSize:11,color:"#534AB7",marginTop:1}}>{pv.note}</div>
+                            </div>
+                            <button onClick={()=>{
+                              const dob = activeDog?.dob;
+                              let suggestedDate = "";
+                              if (dob) {
+                                const dobDate = new Date(dob);
+                                dobDate.setDate(dobDate.getDate() + pv.weekMin * 7);
+                                suggestedDate = dobDate.toISOString().split("T")[0];
+                              }
+                              const schedule = VACCINE_SCHEDULE[pv.name];
+                              const nextDate = suggestedDate && schedule ? addDays(suggestedDate, schedule.intervalDays) : "";
+                              setNewVaccine({name:pv.name, date:suggestedDate, nextDate});
+                              setShowPuppySchedule(false);
+                            }} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",cursor:"pointer"}}>Use</button>
+                          </div>
+                        ))}
+                      </div>
+                      {!activeDog?.dob && <div style={{fontSize:11,color:"#534AB7",marginTop:6}}>💡 Add Date of Birth in Info tab for auto-calculated dates</div>}
+                    </div>
+                  )}
+
+                  {/* Vaccine Name */}
+                  <div>{lbl("Vaccine Name")}
+                    <div style={{display:"flex",gap:8"}}>
+                      <input value={newVaccine.name} onChange={e=>{
+                        const name = e.target.value;
+                        const schedule = VACCINE_SCHEDULE[name];
+                        const nextDate = schedule && newVaccine.date ? addDays(newVaccine.date, schedule.intervalDays) : newVaccine.nextDate;
+                        setNewVaccine(p=>({...p, name, nextDate}));
+                      }} placeholder="C5, Rabies, Lepto..." list="vaccine-list" style={{flex:1,boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
+                      <datalist id="vaccine-list">
+                        {Object.keys(VACCINE_SCHEDULE).map(v=><option key={v} value={v}/>)}
+                      </datalist>
+                    </div>
+                  </div>
+
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>{lbl("Date Given")}
+                      <input type="date" value={newVaccine.date} onChange={e=>{
+                        const date = e.target.value;
+                        const schedule = VACCINE_SCHEDULE[newVaccine.name];
+                        const nextDate = schedule && date ? addDays(date, schedule.intervalDays) : newVaccine.nextDate;
+                        setNewVaccine(p=>({...p, date, nextDate}));
+                      }} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
+                    </div>
+                    <div>{lbl("Next Due Date")}
+                      <div style={{position:"relative"}}>
+                        <input type="date" value={newVaccine.nextDate} onChange={e=>setNewVaccine(p=>({...p,nextDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border: VACCINE_SCHEDULE[newVaccine.name] && newVaccine.date ? "1.5px solid #AFA9EC" : "1px solid var(--color-border-secondary)",background: VACCINE_SCHEDULE[newVaccine.name] && newVaccine.date ? "#EEEDFE" : "var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}} />
+                        {VACCINE_SCHEDULE[newVaccine.name] && newVaccine.date && <div style={{fontSize:10,color:"#534AB7",marginTop:2}}>Auto-calculated: {VACCINE_SCHEDULE[newVaccine.name].label}</div>}
+                      </div>
+                    </div>
+                  </div>
+
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={addVaccine} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add</button>
-                    <button onClick={()=>setShowAddVaccine(false)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                    <button onClick={()=>{setShowAddVaccine(false);setShowPuppySchedule(false);}} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
                   </div>
                 </div>
               ) : (
