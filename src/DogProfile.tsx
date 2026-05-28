@@ -15,20 +15,21 @@ const TASK_COUNT = 4;
 const VACCINE_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"C5":{intervalDays:365,label:"Annual"},"C3":{intervalDays:365,label:"Annual"},"Rabies":{intervalDays:365,label:"Annual"},"Lepto":{intervalDays:365,label:"Annual"},"Kennel Cough":{intervalDays:365,label:"Annual"},"Heartworm":{intervalDays:365,label:"Annual"},"Puppy 1st":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy 2nd":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy Final":{intervalDays:365,label:"Annual (after final)"}};
 const PUPPY_VACCINES = [{name:"Puppy 1st",weekMin:6,weekMax:7,note:"First vaccination at 6–7 weeks"},{name:"Puppy 2nd",weekMin:10,weekMax:12,note:"Second vaccination at 10–12 weeks"},{name:"Puppy Final",weekMin:14,weekMax:16,note:"Final vaccination at 14–16 weeks"}];
 
-const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
+const WORMING_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"Milbemax":{intervalDays:90,label:"Every 3 months"},"Drontal":{intervalDays:90,label:"Every 3 months"},"Interceptor":{intervalDays:30,label:"Monthly"},"Heartgard":{intervalDays:30,label:"Monthly"},"Panoramis":{intervalDays:30,label:"Monthly"},"Nexgard Spectra":{intervalDays:30,label:"Monthly"},"Other":{intervalDays:90,label:"Every 3 months"}}; = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
 const formatDate = (d:string) => { if(!d)return""; return new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}); };
 const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${new Date(a).toLocaleDateString("en-AU",{day:"numeric",month:"short"})} – ${new Date(b).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"})}`; };
 const daysUntil = (d:string) => { if(!d)return null; return Math.ceil((new Date(d).getTime()-new Date().setHours(0,0,0,0))/(1000*60*60*24)); };
 
-type VaccineRecord = {name:string;date:string;nextDate:string};
+type WormRecord = {id:string;name:string;date:string;nextDate:string;notes:string};
+type VaccineRecord = {id:string;name:string;date:string;nextDate:string};
 type MediaItem = {id:string;type:"image"|"video";url:string;name:string;date:string};
 type DocItem = {id:string;name:string;docType:string;date:string;url:string;fileType:string};
 type HeatRecord = {id:string;lastHeat:string;nextHeat:string;cycleLength:string;notes:string;readyToMate:string;matingDate:string;expectedWhelp:string;actualWhelp:string};
-type Dog = {id:string;name:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[]};
+type Dog = {id:string;name:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[]};
 
-const newDog = (id:string): Dog => ({id,name:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],healthNotes:"",gallery:[],documents:[],heatRecords:[]});
+const newDog = (id:string): Dog => ({id,name:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
 export default function DogProfile() {
@@ -38,11 +39,17 @@ export default function DogProfile() {
   const [syncMsg,setSyncMsg] = useState("");
   const [todayJournal,setTodayJournal] = useState<any>(null);
   const [activeDogId,setActiveDogId] = useState<string|null>(null);
-  const [tab,setTab] = useState<"info"|"vaccine"|"health"|"heat"|"gallery"|"docs"|"reminders">("info");
+  const [tab,setTab] = useState<"info"|"vaccine"|"worming"|"health"|"heat"|"gallery"|"docs"|"reminders">("info");
   const [saved,setSaved] = useState(false);
   const [newVaccine,setNewVaccine] = useState({name:"",date:"",nextDate:""});
   const [showAddVaccine,setShowAddVaccine] = useState(false);
   const [showPuppySchedule,setShowPuppySchedule] = useState(false);
+  const [editVaccineIdx,setEditVaccineIdx] = useState<number|null>(null);
+  const [editVaccine,setEditVaccine] = useState({name:"",date:"",nextDate:""});
+  const [newWorm,setNewWorm] = useState({name:"",date:"",nextDate:"",notes:""});
+  const [showAddWorm,setShowAddWorm] = useState(false);
+  const [editWormId,setEditWormId] = useState<string|null>(null);
+  const [editWorm,setEditWorm] = useState({name:"",date:"",nextDate:"",notes:""});
   const [search,setSearch] = useState("");
   const [filterKennel,setFilterKennel] = useState("All");
   const [lightbox,setLightbox] = useState<MediaItem|null>(null);
@@ -84,7 +91,10 @@ export default function DogProfile() {
   const addDog = () => { const d=newDog("DOG-"+genId()); const u=[...dogs,d]; setDogs(u); saveToFirebase(u); setActiveDogId(d.id); setTab("info"); setSaved(false); };
   const updateDog = (f:keyof Dog,v:any) => { setDogs(p=>p.map(d=>d.id===activeDogId?{...d,[f]:v}:d)); setSaved(false); };
   const deleteDog = (id:string) => { if(!confirm("Delete this profile?"))return; const u=dogs.filter(d=>d.id!==id); setDogs(u); saveToFirebase(u); setActiveDogId(null); };
-  const addVaccine = () => { if(!newVaccine.name||!newVaccine.date||!activeDog)return; updateDog("vaccines",[...activeDog.vaccines,newVaccine]); setNewVaccine({name:"",date:"",nextDate:""}); setShowAddVaccine(false); setShowPuppySchedule(false); };
+  const addVaccine = () => { if(!newVaccine.name||!newVaccine.date||!activeDog)return; updateDog("vaccines",[...activeDog.vaccines,{id:genId(),...newVaccine}]); setNewVaccine({name:"",date:"",nextDate:""}); setShowAddVaccine(false); setShowPuppySchedule(false); };
+  const saveEditVaccine = (idx:number) => { if(!activeDog)return; const updated=activeDog.vaccines.map((v,i)=>i===idx?{...v,...editVaccine}:v); updateDog("vaccines",updated); setEditVaccineIdx(null); };
+  const addWorm = () => { if(!newWorm.name||!newWorm.date||!activeDog)return; updateDog("wormRecords",[...(activeDog.wormRecords||[]),{id:genId(),...newWorm}]); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
+  const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
   const handleAvatar = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>updateDog("avatar",ev.target?.result as string); r.readAsDataURL(f); };
   const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=ev=>{ const item:MediaItem={id:genId(),type:iv?"video":"image",url:ev.target?.result as string,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); setSaved(false); };
@@ -120,7 +130,7 @@ export default function DogProfile() {
   const reminderCount = vaccineAlerts.length+heatAlerts.length;
 
   const TABS = [
-    {k:"info",label:"📋 Info"},{k:"vaccine",label:"💉 Vaccines"},{k:"health",label:"🩺 Health"},
+    {k:"info",label:"📋 Info"},{k:"vaccine",label:"💉 Vaccines"},{k:"worming",label:"🐛 Worming"},{k:"health",label:"🩺 Health"},
     {k:"heat",label:"🌡️ Heat Cycle"},{k:"gallery",label:"🖼️ Gallery"},{k:"docs",label:"📁 Documents"},
     {k:"reminders",label:`🔔 Reminders${reminderCount>0?` (${reminderCount})`:""}`},
   ];
@@ -301,6 +311,20 @@ export default function DogProfile() {
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
                 {activeDog.vaccines.map((v,i)=>{
                   const dl=daysUntil(v.nextDate); const isOD=dl!==null&&dl<0; const isSoon=dl!==null&&!isOD&&dl<=30;
+                  if(editVaccineIdx===i) return(
+                    <div key={i} style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Edit Vaccine</div>
+                      <input value={editVaccine.name} onChange={e=>setEditVaccine(p=>({...p,name:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        <div>{lbl("Date Given")}<input type="date" value={editVaccine.date} onChange={e=>setEditVaccine(p=>({...p,date:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                        <div>{lbl("Next Due")}<input type="date" value={editVaccine.nextDate} onChange={e=>setEditVaccine(p=>({...p,nextDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>saveEditVaccine(i)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:12,cursor:"pointer"}}>Save</button>
+                        <button onClick={()=>setEditVaccineIdx(null)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:12,cursor:"pointer"}}>Cancel</button>
+                      </div>
+                    </div>
+                  );
                   return(
                     <div key={i} style={{background:"var(--color-background-primary)",border:`1px solid ${isOD?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
@@ -308,7 +332,10 @@ export default function DogProfile() {
                         <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {v.date}</div>
                         {v.nextDate&&<div style={{fontSize:11,color:isOD?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{isOD?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{v.nextDate}</div>}
                       </div>
-                      <button onClick={()=>updateDog("vaccines",activeDog.vaccines.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{setEditVaccineIdx(i);setEditVaccine({name:v.name,date:v.date,nextDate:v.nextDate});}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}>Edit</button>
+                        <button onClick={()=>updateDog("vaccines",activeDog.vaccines.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
+                      </div>
                     </div>
                   );
                 })}
@@ -363,6 +390,70 @@ export default function DogProfile() {
                 </div>
               ):(
                 <button onClick={()=>setShowAddVaccine(true)} style={{width:"100%",padding:"10px",borderRadius:"var(--border-radius-md)",border:"1.5px dashed var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>+ Add Vaccination Record</button>
+              )}
+            </div>
+          )}
+
+          {tab==="worming"&&(
+            <div>
+              {(activeDog.wormRecords||[]).length===0&&!showAddWorm&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No worming records yet</div>}
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+                {(activeDog.wormRecords||[]).map(w=>{
+                  const dl=daysUntil(w.nextDate); const isOD=dl!==null&&dl<0; const isSoon=dl!==null&&!isOD&&dl<=30;
+                  if(editWormId===w.id) return(
+                    <div key={w.id} style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Edit Worming Record</div>
+                      <input value={editWorm.name} onChange={e=>setEditWorm(p=>({...p,name:e.target.value}))} list="worm-list" style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                      <datalist id="worm-list">{Object.keys(WORMING_SCHEDULE).map(v=><option key={v} value={v}/>)}</datalist>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        <div>{lbl("Date Given")}<input type="date" value={editWorm.date} onChange={e=>setEditWorm(p=>({...p,date:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                        <div>{lbl("Next Due")}<input type="date" value={editWorm.nextDate} onChange={e=>setEditWorm(p=>({...p,nextDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                      </div>
+                      <input value={editWorm.notes} onChange={e=>setEditWorm(p=>({...p,notes:e.target.value}))} placeholder="Notes..." style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>saveEditWorm(w.id)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:12,cursor:"pointer"}}>Save</button>
+                        <button onClick={()=>setEditWormId(null)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:12,cursor:"pointer"}}>Cancel</button>
+                      </div>
+                    </div>
+                  );
+                  return(
+                    <div key={w.id} style={{background:"var(--color-background-primary)",border:`1px solid ${isOD?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:500}}>🐛 {w.name}</div>
+                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {w.date}</div>
+                        {w.nextDate&&<div style={{fontSize:11,color:isOD?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{isOD?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{w.nextDate}</div>}
+                        {w.notes&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:1}}>📝 {w.notes}</div>}
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{setEditWormId(w.id);setEditWorm({name:w.name,date:w.date,nextDate:w.nextDate,notes:w.notes});}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}>Edit</button>
+                        <button onClick={()=>updateDog("wormRecords",(activeDog.wormRecords||[]).filter(x=>x.id!==w.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {showAddWorm?(
+                <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Add Worming Record</div>
+                  <div>{lbl("Product Name")}
+                    <input value={newWorm.name} onChange={e=>{const name=e.target.value;const sc=WORMING_SCHEDULE[name];setNewWorm(p=>({...p,name,nextDate:sc&&p.date?addDays(p.date,sc.intervalDays):p.nextDate}));}} placeholder="Milbemax, Drontal..." list="worm-list2" style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                    <datalist id="worm-list2">{Object.keys(WORMING_SCHEDULE).map(v=><option key={v} value={v}/>)}</datalist>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>{lbl("Date Given")}<input type="date" value={newWorm.date} onChange={e=>{const date=e.target.value;const sc=WORMING_SCHEDULE[newWorm.name];setNewWorm(p=>({...p,date,nextDate:sc&&date?addDays(date,sc.intervalDays):p.nextDate}));}} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                    <div>{lbl("Next Due Date")}
+                      <input type="date" value={newWorm.nextDate} onChange={e=>setNewWorm(p=>({...p,nextDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:WORMING_SCHEDULE[newWorm.name]&&newWorm.date?"1.5px solid #AFA9EC":"1px solid var(--color-border-secondary)",background:WORMING_SCHEDULE[newWorm.name]&&newWorm.date?"#EEEDFE":"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                      {WORMING_SCHEDULE[newWorm.name]&&newWorm.date&&<div style={{fontSize:10,color:"#534AB7",marginTop:2}}>Auto-calculated: {WORMING_SCHEDULE[newWorm.name].label}</div>}
+                    </div>
+                  </div>
+                  <div>{lbl("Notes")}<input value={newWorm.notes} onChange={e=>setNewWorm(p=>({...p,notes:e.target.value}))} placeholder="Weight, dose, any reactions..." style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={addWorm} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add</button>
+                    <button onClick={()=>setShowAddWorm(false)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>setShowAddWorm(true)} style={{width:"100%",padding:"10px",borderRadius:"var(--border-radius-md)",border:"1.5px dashed var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>+ Add Worming Record</button>
               )}
             </div>
           )}
