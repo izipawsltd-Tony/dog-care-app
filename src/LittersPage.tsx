@@ -16,13 +16,10 @@ const statusStyle = (s:string) => ({Available:{bg:"#E1F5EE",color:"#0F6E56"},Res
 const IS:React.CSSProperties = {width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"};
 const lbl = (t:string) => <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4}}>{t}</div>;
 
-// ---- DogSelect: chọn từ profiles hoặc nhập tay ----
 function DogSelect({label,value,onChange,dogs}:{label:string;value:string;onChange:(v:string)=>void;dogs:any[]}) {
-  const [mode,setMode] = useState<"select"|"manual">(dogs.some(d=>d.name===value||`${d.callName} (${d.name})`===value)?"select":"manual");
-  const femaleDogs = dogs.filter(d=>d.gender==="Female"||!d.gender);
-  const maleDogs = dogs.filter(d=>d.gender==="Male"||!d.gender);
-  const list = label.toLowerCase().includes("dam") ? femaleDogs : maleDogs.length>0 ? maleDogs : dogs;
-
+  const [mode,setMode] = useState<"select"|"manual">("select");
+  const list = label.toLowerCase().includes("dam") ? dogs.filter(d=>d.gender==="Female"||!d.gender) : dogs.filter(d=>d.gender==="Male"||!d.gender);
+  const displayList = list.length>0?list:dogs;
   return (
     <div>
       {lbl(label)}
@@ -33,16 +30,46 @@ function DogSelect({label,value,onChange,dogs}:{label:string;value:string;onChan
       {mode==="select"?(
         <select value={value} onChange={e=>onChange(e.target.value)} style={IS}>
           <option value="">-- Select --</option>
-          {list.map(d=>(
-            <option key={d.id} value={d.callName?`${d.callName} (${d.name})`:d.name}>
-              {d.callName?`${d.callName} (${d.name})`:d.name}{d.breed?` — ${d.breed}`:""}
-            </option>
-          ))}
-          <option value="__manual__">Other (type below)</option>
+          {displayList.map(d=><option key={d.id} value={d.callName?`${d.callName} (${d.name})`:d.name}>{d.callName?`${d.callName} (${d.name})`:d.name}{d.breed?` — ${d.breed}`:""}</option>)}
         </select>
       ):(
         <input value={value} onChange={e=>onChange(e.target.value)} placeholder={`Enter ${label.toLowerCase()} name...`} style={IS}/>
       )}
+    </div>
+  );
+}
+
+// ---- Edit Litter Form ----
+function EditLitterForm({litter,dogs,onSave,onCancel}:{litter:any;dogs:any[];onSave:(updated:any)=>void;onCancel:()=>void}) {
+  const [form,setForm] = useState({
+    litterId: litter.litterId||"",
+    dob: litter.dob||"",
+    sire: litter.sire||"",
+    dam: litter.dam||"",
+    maleCount: litter.maleCount||"",
+    femaleCount: litter.femaleCount||"",
+    notes: litter.notes||"",
+  });
+  return (
+    <div style={{background:"var(--color-background-primary)",borderRadius:"var(--border-radius-lg)",padding:"14px",border:"1.5px solid #534AB7",display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{fontSize:12,fontWeight:500,color:"#3C3489",textTransform:"uppercase",letterSpacing:"0.06em"}}>✏️ Edit Litter</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div>{lbl("Litter ID")}<input value={form.litterId} onChange={e=>setForm(p=>({...p,litterId:e.target.value}))} style={IS}/></div>
+        <div>{lbl("Date of Birth")}<input type="date" value={form.dob} onChange={e=>setForm(p=>({...p,dob:e.target.value}))} style={IS}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <DogSelect label="Sire (Father)" value={form.sire} onChange={v=>setForm(p=>({...p,sire:v}))} dogs={dogs}/>
+        <DogSelect label="Dam (Mother)" value={form.dam} onChange={v=>setForm(p=>({...p,dam:v}))} dogs={dogs}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div>{lbl("No. of Males")}<input value={form.maleCount} onChange={e=>setForm(p=>({...p,maleCount:e.target.value}))} placeholder="0" style={IS}/></div>
+        <div>{lbl("No. of Females")}<input value={form.femaleCount} onChange={e=>setForm(p=>({...p,femaleCount:e.target.value}))} placeholder="0" style={IS}/></div>
+      </div>
+      <div>{lbl("Notes")}<input value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Any notes..." style={IS}/></div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>onSave({...litter,...form})} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>✓ Save Changes</button>
+        <button onClick={onCancel} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+      </div>
     </div>
   );
 }
@@ -252,6 +279,7 @@ export default function LittersPage() {
   const [syncMsg,setSyncMsg] = useState("");
   const [expandedIds,setExpandedIds] = useState<Set<string>>(new Set());
   const [showAddLitter,setShowAddLitter] = useState(false);
+  const [editingLitterId,setEditingLitterId] = useState<string|null>(null);
   const [newLitter,setNewLitter] = useState({litterId:"",dob:"",sire:"",dam:"",maleCount:"",femaleCount:"",notes:""});
   const [addPuppyFor,setAddPuppyFor] = useState<string|null>(null);
   const [newPuppy,setNewPuppy] = useState({name:"",gender:"",colour:"",collarColour:"",weight:"",photo:"",status:"Available",buyer:{},vaccines:[],wormRecords:[],documents:[]});
@@ -260,10 +288,7 @@ export default function LittersPage() {
   useEffect(()=>{
     const load = async () => {
       try {
-        const [ls,ds] = await Promise.all([
-          getDoc(doc(db,"litters","all")),
-          getDoc(doc(db,"dogProfiles","all")),
-        ]);
+        const [ls,ds] = await Promise.all([getDoc(doc(db,"litters","all")),getDoc(doc(db,"dogProfiles","all"))]);
         if(ls.exists()&&ls.data().litters) setLitters(ls.data().litters);
         if(ds.exists()&&ds.data().dogs) setDogs(ds.data().dogs);
       } catch(e){console.error(e);}
@@ -299,6 +324,12 @@ export default function LittersPage() {
     setLitters(updated); save(updated);
   };
 
+  const saveLitterEdit = (updated:any) => {
+    const newList=litters.map(l=>l.id===updated.id?updated:l);
+    setLitters(newList); save(newList);
+    setEditingLitterId(null);
+  };
+
   const addPuppy = (litterId:string) => {
     if(!newPuppy.name)return;
     const updated=litters.map(l=>l.id===litterId?{...l,puppies:[...l.puppies,{id:genId(),...newPuppy}]}:l);
@@ -316,19 +347,12 @@ export default function LittersPage() {
     kept:l.puppies.filter((p:any)=>p.status==="Kept").length,
   });
 
-  const filtered = litters.filter(l=>
-    !search ||
-    l.litterId?.toLowerCase().includes(search.toLowerCase()) ||
-    l.sire?.toLowerCase().includes(search.toLowerCase()) ||
-    l.dam?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = litters.filter(l=>!search||l.litterId?.toLowerCase().includes(search.toLowerCase())||l.sire?.toLowerCase().includes(search.toLowerCase())||l.dam?.toLowerCase().includes(search.toLowerCase()));
 
   if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,fontFamily:"var(--font-sans)",color:"var(--color-text-secondary)"}}>Loading litters...</div>;
 
   return (
     <div style={{fontFamily:"var(--font-sans)",color:"var(--color-text-primary)",maxWidth:680,margin:"0 auto",padding:"16px 12px"}}>
-
-      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
           <div style={{fontSize:11,color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Litters</div>
@@ -337,14 +361,12 @@ export default function LittersPage() {
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {syncMsg&&<span style={{fontSize:12,color:"#1D9E75"}}>{syncMsg}</span>}
           <button onClick={()=>save(litters)} disabled={syncing} style={{padding:"8px 14px",borderRadius:"var(--border-radius-md)",border:"none",background:syncing?"#888":"#1D9E75",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>💾 Save</button>
-          <button onClick={()=>setShowAddLitter(true)} style={{padding:"8px 14px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ New Litter</button>
+          <button onClick={()=>{setShowAddLitter(true);setEditingLitterId(null);}} style={{padding:"8px 14px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ New Litter</button>
         </div>
       </div>
 
-      {/* Search */}
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search by litter ID, sire or dam..." style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none",marginBottom:14}}/>
 
-      {/* Add Litter Form */}
       {showAddLitter&&(
         <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",border:"1px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>New Litter</div>
@@ -363,7 +385,7 @@ export default function LittersPage() {
           <div>{lbl("Notes")}<input value={newLitter.notes} onChange={e=>setNewLitter(p=>({...p,notes:e.target.value}))} placeholder="Any notes..." style={IS}/></div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={addLitter} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Create Litter</button>
-            <button onClick={()=>{setShowAddLitter(false);setNewLitter({litterId:"",dob:"",sire:"",dam:"",maleCount:"",femaleCount:"",notes:""}); }} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+            <button onClick={()=>{setShowAddLitter(false);setNewLitter({litterId:"",dob:"",sire:"",dam:"",maleCount:"",femaleCount:"",notes:""});}} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
           </div>
         </div>
       )}
@@ -375,72 +397,84 @@ export default function LittersPage() {
         </div>
       )}
 
-      {/* Litter list */}
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         {filtered.map(litter=>{
           const exp=expandedIds.has(litter.id);
           const s=stats(litter);
+          const isEditing=editingLitterId===litter.id;
           return(
-            <div key={litter.id} style={{border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",overflow:"hidden"}}>
-              {/* Litter header */}
-              <div style={{background:"var(--color-background-secondary)",padding:"12px 14px",cursor:"pointer",userSelect:"none"}} onClick={()=>toggleLitter(litter.id)}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:500,fontSize:14,display:"flex",alignItems:"center",gap:8}}>
-                      🐾 {litter.litterId}
-                      <span style={{fontSize:11,fontWeight:400,color:"var(--color-text-secondary)"}}>Born {formatDate(litter.dob)}</span>
-                    </div>
-                    <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:3}}>
-                      {[litter.sire&&`Sire: ${litter.sire}`,litter.dam&&`Dam: ${litter.dam}`].filter(Boolean).join(" · ")}
-                    </div>
-                    {litter.puppies.length>0&&(
-                      <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                        {s.avail>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#E1F5EE",color:"#0F6E56"}}>✔ {s.avail} Available</span>}
-                        {s.reserved>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#FAEEDA",color:"#633806"}}>⏳ {s.reserved} Reserved</span>}
-                        {s.sold>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#FCEBEB",color:"#A32D2D"}}>💰 {s.sold} Sold</span>}
-                        {s.kept>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#EEEDFE",color:"#3C3489"}}>🏠 {s.kept} Kept</span>}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                    <span style={{background:"#EEEDFE",color:"#3C3489",fontSize:11,padding:"2px 8px",borderRadius:99}}>{litter.puppies.length} pup{litter.puppies.length!==1?"s":""}</span>
-                    {litter.maleCount&&<span style={{fontSize:11,color:"#185FA5"}}>♂ {litter.maleCount}</span>}
-                    {litter.femaleCount&&<span style={{fontSize:11,color:"#993556"}}>♀ {litter.femaleCount}</span>}
-                    <span style={{fontSize:14,color:"var(--color-text-tertiary)",transform:exp?"rotate(180deg)":"none",transition:"transform 0.18s"}}>▾</span>
-                    <button onClick={e=>{e.stopPropagation();deleteLitter(litter.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
-                  </div>
+            <div key={litter.id} style={{border:`1px solid ${isEditing?"#534AB7":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-lg)",overflow:"hidden"}}>
+              {/* Edit form */}
+              {isEditing?(
+                <div style={{padding:"14px"}}>
+                  <EditLitterForm litter={litter} dogs={dogs} onSave={saveLitterEdit} onCancel={()=>setEditingLitterId(null)}/>
                 </div>
-                {litter.notes&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:6}}>📝 {litter.notes}</div>}
-              </div>
-
-              {/* Litter body */}
-              {exp&&(
-                <div style={{padding:"14px",background:"var(--color-background-primary)",display:"flex",flexDirection:"column",gap:10}}>
-                  {litter.puppies.length===0&&<div style={{textAlign:"center",padding:"12px 0",color:"var(--color-text-tertiary)",fontSize:12}}>No puppies added yet</div>}
-                  {litter.puppies.map((puppy:any)=>(
-                    <PuppyCard key={puppy.id} puppy={puppy} litterId={litter.id} litters={litters} onChange={handleLittersChange}/>
-                  ))}
-
-                  {addPuppyFor===litter.id?(
-                    <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px",border:"1px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",gap:10}}>
-                      <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>New Puppy</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                        <div>{lbl("Name")}<input value={newPuppy.name} onChange={e=>setNewPuppy(p=>({...p,name:e.target.value}))} placeholder="Puppy name..." style={IS}/></div>
-                        <div>{lbl("Gender")}<select value={newPuppy.gender} onChange={e=>setNewPuppy(p=>({...p,gender:e.target.value}))} style={IS}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
-                        <div>{lbl("Coat Colour")}<select value={newPuppy.colour} onChange={e=>setNewPuppy(p=>({...p,colour:e.target.value}))} style={IS}><option value="">-- Select --</option>{COLOUR_LIST.map(c=><option key={c}>{c}</option>)}</select></div>
-                        <div>{lbl("Collar Colour")}<select value={newPuppy.collarColour} onChange={e=>setNewPuppy(p=>({...p,collarColour:e.target.value}))} style={IS}><option value="">-- None --</option>{COLLAR_COLOURS.map(c=><option key={c}>{c}</option>)}</select></div>
-                        <div>{lbl("Weight (kg)")}<input value={newPuppy.weight} onChange={e=>setNewPuppy(p=>({...p,weight:e.target.value}))} placeholder="0.5" style={IS}/></div>
-                        <div>{lbl("Status")}<select value={newPuppy.status} onChange={e=>setNewPuppy(p=>({...p,status:e.target.value}))} style={IS}>{PUPPY_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+              ):(
+                <>
+                  {/* Litter header */}
+                  <div style={{background:"var(--color-background-secondary)",padding:"12px 14px",cursor:"pointer",userSelect:"none"}} onClick={()=>toggleLitter(litter.id)}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:500,fontSize:14,display:"flex",alignItems:"center",gap:8}}>
+                          🐾 {litter.litterId}
+                          <span style={{fontSize:11,fontWeight:400,color:"var(--color-text-secondary)"}}>Born {formatDate(litter.dob)}</span>
+                        </div>
+                        <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:3}}>
+                          {[litter.sire&&`Sire: ${litter.sire}`,litter.dam&&`Dam: ${litter.dam}`].filter(Boolean).join(" · ")}
+                        </div>
+                        {litter.puppies.length>0&&(
+                          <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                            {s.avail>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#E1F5EE",color:"#0F6E56"}}>✔ {s.avail} Available</span>}
+                            {s.reserved>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#FAEEDA",color:"#633806"}}>⏳ {s.reserved} Reserved</span>}
+                            {s.sold>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#FCEBEB",color:"#A32D2D"}}>💰 {s.sold} Sold</span>}
+                            {s.kept>0&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:99,background:"#EEEDFE",color:"#3C3489"}}>🏠 {s.kept} Kept</span>}
+                          </div>
+                        )}
                       </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>addPuppy(litter.id)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add Puppy</button>
-                        <button onClick={()=>setAddPuppyFor(null)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                      <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                        <span style={{background:"#EEEDFE",color:"#3C3489",fontSize:11,padding:"2px 8px",borderRadius:99}}>{litter.puppies.length} pup{litter.puppies.length!==1?"s":""}</span>
+                        {litter.maleCount&&<span style={{fontSize:11,color:"#185FA5"}}>♂ {litter.maleCount}</span>}
+                        {litter.femaleCount&&<span style={{fontSize:11,color:"#993556"}}>♀ {litter.femaleCount}</span>}
+                        <button
+                          onClick={e=>{e.stopPropagation();setEditingLitterId(litter.id);setExpandedIds(prev=>{const n=new Set(prev);n.delete(litter.id);return n;});}}
+                          style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}
+                        >✏️ Edit</button>
+                        <span style={{fontSize:14,color:"var(--color-text-tertiary)",transform:exp?"rotate(180deg)":"none",transition:"transform 0.18s"}}>▾</span>
+                        <button onClick={e=>{e.stopPropagation();deleteLitter(litter.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
                       </div>
                     </div>
-                  ):(
-                    <button onClick={()=>setAddPuppyFor(litter.id)} style={{width:"100%",padding:"9px",borderRadius:"var(--border-radius-md)",border:"1.5px dashed var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>+ Add Puppy</button>
+                    {litter.notes&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:6}}>📝 {litter.notes}</div>}
+                  </div>
+
+                  {/* Litter body */}
+                  {exp&&(
+                    <div style={{padding:"14px",background:"var(--color-background-primary)",display:"flex",flexDirection:"column",gap:10}}>
+                      {litter.puppies.length===0&&<div style={{textAlign:"center",padding:"12px 0",color:"var(--color-text-tertiary)",fontSize:12}}>No puppies added yet</div>}
+                      {litter.puppies.map((puppy:any)=>(
+                        <PuppyCard key={puppy.id} puppy={puppy} litterId={litter.id} litters={litters} onChange={handleLittersChange}/>
+                      ))}
+                      {addPuppyFor===litter.id?(
+                        <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px",border:"1px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",gap:10}}>
+                          <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>New Puppy</div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                            <div>{lbl("Name")}<input value={newPuppy.name} onChange={e=>setNewPuppy(p=>({...p,name:e.target.value}))} placeholder="Puppy name..." style={IS}/></div>
+                            <div>{lbl("Gender")}<select value={newPuppy.gender} onChange={e=>setNewPuppy(p=>({...p,gender:e.target.value}))} style={IS}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
+                            <div>{lbl("Coat Colour")}<select value={newPuppy.colour} onChange={e=>setNewPuppy(p=>({...p,colour:e.target.value}))} style={IS}><option value="">-- Select --</option>{COLOUR_LIST.map(c=><option key={c}>{c}</option>)}</select></div>
+                            <div>{lbl("Collar Colour")}<select value={newPuppy.collarColour} onChange={e=>setNewPuppy(p=>({...p,collarColour:e.target.value}))} style={IS}><option value="">-- None --</option>{COLLAR_COLOURS.map(c=><option key={c}>{c}</option>)}</select></div>
+                            <div>{lbl("Weight (kg)")}<input value={newPuppy.weight} onChange={e=>setNewPuppy(p=>({...p,weight:e.target.value}))} placeholder="0.5" style={IS}/></div>
+                            <div>{lbl("Status")}<select value={newPuppy.status} onChange={e=>setNewPuppy(p=>({...p,status:e.target.value}))} style={IS}>{PUPPY_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <button onClick={()=>addPuppy(litter.id)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add Puppy</button>
+                            <button onClick={()=>setAddPuppyFor(null)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                          </div>
+                        </div>
+                      ):(
+                        <button onClick={()=>setAddPuppyFor(litter.id)} style={{width:"100%",padding:"9px",borderRadius:"var(--border-radius-md)",border:"1.5px dashed var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>+ Add Puppy</button>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           );
