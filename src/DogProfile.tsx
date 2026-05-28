@@ -127,7 +127,13 @@ export default function DogProfile() {
   };
   const urgencyLabel = (d:number) => d<0?`Overdue ${Math.abs(d)}d`:d===0?"Due today!":d===1?"Due tomorrow":`In ${d} days`;
 
-  const vaccineAlerts = activeDog?activeDog.vaccines.filter(v=>{const dl=daysUntil(v.nextDate);return dl!==null&&dl<=vaccineReminder.days;}).map(v=>({name:v.name,dueDate:v.nextDate,daysLeft:daysUntil(v.nextDate)!})):[];
+  const vaccineAlerts = activeDog?activeDog.vaccines.filter(v=>{
+    const dl=daysUntil(v.nextDate);
+    if(dl===null||dl>vaccineReminder.days) return false;
+    // Skip if a newer record with same name exists
+    const hasNewer=activeDog.vaccines.some(v2=>v2.name===v.name&&v2.date>v.date);
+    return !hasNewer;
+  }).map(v=>({name:v.name,dueDate:v.nextDate,daysLeft:daysUntil(v.nextDate)!})):[];
   const heatAlerts = activeDog?activeDog.heatRecords.filter(h=>{const dl=daysUntil(h.nextHeat);return dl!==null&&dl<=heatReminder.days;}).map(h=>({nextHeat:h.nextHeat,daysLeft:daysUntil(h.nextHeat)!,notes:h.notes})):[];
   const reminderCount = vaccineAlerts.length+heatAlerts.length;
 
