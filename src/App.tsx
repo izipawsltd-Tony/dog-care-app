@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "./firebase";
-import emailjs from "@emailjs/browser";
 import { doc, getDoc } from "firebase/firestore";
+import emailjs from "@emailjs/browser";
 import DogJournal from "./DogJournal";
 import DogProfile from "./DogProfile";
 
@@ -23,7 +23,8 @@ const daysUntil = (dateStr: string) => {
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  const [y, m, d] = dateStr.split("-");
+  return `${d}-${m}-${y}`;
 };
 
 const urgencyColor = (days: number) => {
@@ -51,12 +52,54 @@ export default function App() {
   const [filterKennel, setFilterKennel] = useState("All");
   const [filterType, setFilterType] = useState<"all" | "vaccine" | "heat">("all");
 
+  // Send email reminders once per day
+  useEffect(() => {
+    const sendReminders = async () => {
+      try {
+        const todayKey = new Date().toISOString().split("T")[0];
+        const lastSent = localStorage.getItem("lastReminderSent");
+        if (lastSent === todayKey) return;
+        const snap = await getDoc(doc(db, "dogProfiles", "all"));
+        if (!snap.exists()) return;
+        const allDogs = snap.data().dogs || [];
+        const alerts: string[] = [];
+        allDogs.forEach((dog: any) => {
+          dog.vaccines?.forEach((v: any) => {
+            if (!v.nextDate || v.completed) return;
+            const hasNewer = dog.vaccines.some((v2: any) => v2.name === v.name && v2.date > v.date);
+            if (hasNewer) return;
+            const dl = Math.ceil((new Date(v.nextDate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+            if (dl <= 30) alerts.push(`💉 ${dog.name} — ${v.name} vaccine ${dl < 0 ? `OVERDUE by ${Math.abs(dl)} days` : `due in ${dl} days`} (${formatDate(v.nextDate)})`);
+          });
+          dog.heatRecords?.forEach((h: any) => {
+            if (!h.nextHeat) return;
+            const dl = Math.ceil((new Date(h.nextHeat).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+            if (dl >= 0 && dl <= 30) alerts.push(`🌡️ ${dog.name} — Heat cycle expected in ${dl} days (${formatDate(h.nextHeat)})`);
+          });
+        });
+        if (alerts.length === 0) return;
+        await emailjs.send(
+          "service_1xiiqii4",
+          "template_5xjualp",
+          {
+            date: new Date().toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+            reminders: alerts.join("\n"),
+          },
+          "EnExVywt47_FbtvbW"
+        );
+        localStorage.setItem("lastReminderSent", todayKey);
+      } catch (e) { console.error("Email reminder error:", e); }
+    };
+    sendReminders();
+  }, []);
+
+  // Load dogs for reminders page
   useEffect(() => {
     const load = async () => {
       try {
         const snap = await getDoc(doc(db, "dogProfiles", "all"));
         if (snap.exists() && snap.data().dogs) setDogs(snap.data().dogs);
-      } catch(e) { console.error(e); }
+      } catch (e) { console.error(e); }
     };
     if (page === "reminders") load();
   }, [page]);
@@ -109,7 +152,7 @@ export default function App() {
       {page === "journal" && <DogJournal staffNames={staffNames} />}
       {page === "profile" && <DogProfile />}
 
-      {/* Reminders page */}
+      {/* Reminders */}
       {page === "reminders" && (
         <div style={{ fontFamily: "sans-serif", maxWidth: 680, margin: "0 auto", padding: "16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -143,7 +186,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Filters */}
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             <select value={filterKennel} onChange={e => setFilterKennel(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, outline: "none" }}>
               <option value="All">All Kennels</option>
@@ -216,7 +258,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Settings page */}
+      {/* Settings */}
       {page === "settings" && (
         <div style={{ fontFamily: "sans-serif", maxWidth: 480, margin: "0 auto", padding: "24px 16px" }}>
           <div style={{ fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Settings</div>
