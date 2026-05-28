@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import emailjs from "@emailjs/browser";
 import DogJournal from "./DogJournal";
 import DogProfile from "./DogProfile";
+import Login from "./Login";
 
 const REMINDER_OPTIONS = [
   { label: "7 days before", days: 7 },
@@ -51,6 +53,16 @@ export default function App() {
   const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [filterKennel, setFilterKennel] = useState("All");
   const [filterType, setFilterType] = useState<"all" | "vaccine" | "heat">("all");
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, u => { setUser(u); setAuthLoading(false); });
+    return () => unsub();
+  }, []);
+
+  if (authLoading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"sans-serif", color:"#888" }}>Loading...</div>;
+  if (!user) return <Login />;
 
   // Send email reminders once per day
   useEffect(() => {
@@ -137,15 +149,20 @@ export default function App() {
     { k: "settings", label: "⚙️ Settings" },
   ];
 
+  const handleLogout = async () => { await signOut(auth); };
+
   return (
     <div>
       {/* Navigation */}
-      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
         {NAV.map(n => (
           <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 100, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
             {n.label}
           </button>
         ))}
+        <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #F09595", background: "#fff", cursor: "pointer", fontSize: 12, color: "#E24B4A", whiteSpace: "nowrap" }}>
+          🚪 Logout
+        </button>
       </div>
 
       {/* Pages */}
