@@ -79,7 +79,7 @@ export default function App() {
         });
         if (alerts.length === 0) return;
         await emailjs.send(
-          "service_1xiiqii4",
+          "service_1xiqii4",
           "template_5xjualp",
           {
             date: new Date().toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
