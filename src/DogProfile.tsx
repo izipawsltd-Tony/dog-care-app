@@ -4,9 +4,10 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 const BREED_LIST = ["Labrador Retriever","German Shepherd","Golden Retriever","Border Collie","French Bulldog","Bulldog","Poodle","Beagle","Rottweiler","Siberian Husky","Other"];
+const COLOUR_LIST = ["Black","Yellow","Chocolate","Cream","Golden","Red","Silver","White","Black & Tan","Black & White","Brown","Fawn","Brindle","Merle","Sable","Tricolour","Other"];
 const DOC_TYPES = ["Vet Records / Vaccination Book","Breed Certificate","Test Results","Hip and Elbow Scores","Other"];
 const BREED_MATING_WINDOW: Record<string,{from:number;to:number}> = {"Labrador Retriever":{from:10,to:14},"German Shepherd":{from:12,to:15},"default":{from:10,to:14}};
-const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
+const BREED_CYCLE: Record<string,{days:number;label:string}> = {"Labrador Retriever":{days:182,label:"~6 months"},"German Shepherd":{days:182,label:"~6 months"},"default":{days:182,label:"~6 months"}};
 const WHELP_TOLERANCE = 3;
 const REMINDER_OPTIONS = [{label:"7 days before",days:7},{label:"14 days before",days:14},{label:"1 month before",days:30},{label:"2 months before",days:60},{label:"3 months before",days:90}];
 const CARE_STEPS = [{key:"cleaning",icon:"🧹",label:"Cleaning"},{key:"feeding",icon:"🍖",label:"Feeding"},{key:"grooming",icon:"🛁",label:"Grooming"},{key:"health",icon:"🩺",label:"Health"}];
@@ -14,7 +15,7 @@ const TASK_COUNT = 4;
 const VACCINE_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"C5":{intervalDays:365,label:"Annual"},"C3":{intervalDays:365,label:"Annual"},"Rabies":{intervalDays:365,label:"Annual"},"Lepto":{intervalDays:365,label:"Annual"},"Kennel Cough":{intervalDays:365,label:"Annual"},"Heartworm":{intervalDays:365,label:"Annual"},"Puppy 1st":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy 2nd":{intervalDays:28,label:"4 weeks (Puppy)"},"Puppy Final":{intervalDays:365,label:"Annual (after final)"}};
 const PUPPY_VACCINES = [{name:"Puppy 1st",weekMin:6,weekMax:7,note:"First vaccination at 6–7 weeks"},{name:"Puppy 2nd",weekMin:10,weekMax:12,note:"Second vaccination at 10–12 weeks"},{name:"Puppy Final",weekMin:14,weekMax:16,note:"Final vaccination at 14–16 weeks"}];
 
-const COLOUR_LIST = ["Black","Yellow","Chocolate","Cream","Golden","Red","Silver","White","Black & Tan","Black & White","Brown","Fawn","Brindle","Merle","Sable","Tricolour","Other"];
+const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
 const formatDate = (d:string) => { if(!d)return""; return new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}); };
@@ -148,7 +149,6 @@ export default function DogProfile() {
         </div>
       )}
 
-      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
           <div style={{fontSize:11,color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Dog Profiles</div>
@@ -160,7 +160,6 @@ export default function DogProfile() {
         </div>
       </div>
 
-      {/* Search */}
       {!activeDog&&(
         <div style={{display:"flex",gap:8,marginBottom:12}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search by name or ID..." style={{flex:1,padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
@@ -171,7 +170,6 @@ export default function DogProfile() {
         </div>
       )}
 
-      {/* Dog List */}
       {!activeDog&&(
         <>
           {filteredDogs.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"var(--color-text-tertiary)",fontSize:13}}>{dogs.length===0?"No profiles yet — click + Add Dog to get started":"No results found"}</div>}
@@ -201,7 +199,6 @@ export default function DogProfile() {
         </>
       )}
 
-      {/* Dog Detail */}
       {activeDog&&(
         <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -209,7 +206,6 @@ export default function DogProfile() {
             <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button>
           </div>
 
-          {/* Profile Card */}
           <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
             <div style={{position:"relative",flexShrink:0}}>
               <div style={{width:72,height:72,borderRadius:"50%",overflow:"hidden",background:"var(--color-border-tertiary)",display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid var(--color-border-secondary)"}}>
@@ -232,12 +228,10 @@ export default function DogProfile() {
             </div>
           </div>
 
-          {/* Tabs */}
           <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
             {TABS.map(t=><button key={t.k} onClick={()=>setTab(t.k as any)} style={{padding:"6px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:tab===t.k?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:tab===t.k?"#EEEDFE":"var(--color-background-primary)",color:tab===t.k?"#3C3489":"var(--color-text-secondary)"}}>{t.label}</button>)}
           </div>
 
-          {/* Tab: Info */}
           {tab==="info"&&(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {activeDog.kennel&&(()=>{
@@ -267,7 +261,6 @@ export default function DogProfile() {
                   </div>
                 );
               })()}
-
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div>{lbl("Name")}{inp(activeDog.name,v=>updateDog("name",v),"Buddy, Max...")}</div>
                 <div>{lbl("Breed")}
@@ -302,7 +295,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Vaccines */}
           {tab==="vaccine"&&(
             <div>
               {activeDog.vaccines.length===0&&!showAddVaccine&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No vaccination records yet</div>}
@@ -327,7 +319,6 @@ export default function DogProfile() {
                     <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Add Vaccination Record</div>
                     <button onClick={()=>setShowPuppySchedule(!showPuppySchedule)} style={{fontSize:11,padding:"4px 10px",borderRadius:99,border:"1.5px solid #534AB7",background:showPuppySchedule?"#534AB7":"var(--color-background-primary)",color:showPuppySchedule?"#fff":"#534AB7",cursor:"pointer"}}>🐾 Puppy Schedule</button>
                   </div>
-
                   {showPuppySchedule&&(
                     <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"10px 12px"}}>
                       <div style={{fontSize:12,fontWeight:500,color:"#3C3489",marginBottom:8}}>Puppy Vaccination Schedule</div>
@@ -340,11 +331,10 @@ export default function DogProfile() {
                             </div>
                             <button onClick={()=>{
                               const dob=activeDog?.dob;
-                              let suggestedDate="";
-                              if(dob){const d=new Date(dob);d.setDate(d.getDate()+pv.weekMin*7);suggestedDate=d.toISOString().split("T")[0];}
-                              const sched=VACCINE_SCHEDULE[pv.name];
-                              const nextDate=suggestedDate&&sched?addDays(suggestedDate,sched.intervalDays):"";
-                              setNewVaccine({name:pv.name,date:suggestedDate,nextDate});
+                              let sd="";
+                              if(dob){const d=new Date(dob);d.setDate(d.getDate()+pv.weekMin*7);sd=d.toISOString().split("T")[0];}
+                              const sc=VACCINE_SCHEDULE[pv.name];
+                              setNewVaccine({name:pv.name,date:sd,nextDate:sd&&sc?addDays(sd,sc.intervalDays):""});
                               setShowPuppySchedule(false);
                             }} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",cursor:"pointer"}}>Use</button>
                           </div>
@@ -353,32 +343,19 @@ export default function DogProfile() {
                       {!activeDog?.dob&&<div style={{fontSize:11,color:"#534AB7",marginTop:6}}>💡 Add Date of Birth in Info tab for auto-calculated dates</div>}
                     </div>
                   )}
-
                   <div>{lbl("Vaccine Name")}
-                    <input value={newVaccine.name} onChange={e=>{
-                      const name=e.target.value;
-                      const sched=VACCINE_SCHEDULE[name];
-                      const nextDate=sched&&newVaccine.date?addDays(newVaccine.date,sched.intervalDays):newVaccine.nextDate;
-                      setNewVaccine(p=>({...p,name,nextDate}));
-                    }} placeholder="C5, Rabies, Lepto..." list="vaccine-list" style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                    <input value={newVaccine.name} onChange={e=>{const name=e.target.value;const sc=VACCINE_SCHEDULE[name];setNewVaccine(p=>({...p,name,nextDate:sc&&p.date?addDays(p.date,sc.intervalDays):p.nextDate}));}} placeholder="C5, Rabies, Lepto..." list="vaccine-list" style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
                     <datalist id="vaccine-list">{Object.keys(VACCINE_SCHEDULE).map(v=><option key={v} value={v}/>)}</datalist>
                   </div>
-
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <div>{lbl("Date Given")}
-                      <input type="date" value={newVaccine.date} onChange={e=>{
-                        const date=e.target.value;
-                        const sched=VACCINE_SCHEDULE[newVaccine.name];
-                        const nextDate=sched&&date?addDays(date,sched.intervalDays):newVaccine.nextDate;
-                        setNewVaccine(p=>({...p,date,nextDate}));
-                      }} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
+                      <input type="date" value={newVaccine.date} onChange={e=>{const date=e.target.value;const sc=VACCINE_SCHEDULE[newVaccine.name];setNewVaccine(p=>({...p,date,nextDate:sc&&date?addDays(date,sc.intervalDays):p.nextDate}));}} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
                     </div>
                     <div>{lbl("Next Due Date")}
                       <input type="date" value={newVaccine.nextDate} onChange={e=>setNewVaccine(p=>({...p,nextDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:VACCINE_SCHEDULE[newVaccine.name]&&newVaccine.date?"1.5px solid #AFA9EC":"1px solid var(--color-border-secondary)",background:VACCINE_SCHEDULE[newVaccine.name]&&newVaccine.date?"#EEEDFE":"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
                       {VACCINE_SCHEDULE[newVaccine.name]&&newVaccine.date&&<div style={{fontSize:10,color:"#534AB7",marginTop:2}}>Auto-calculated: {VACCINE_SCHEDULE[newVaccine.name].label}</div>}
                     </div>
                   </div>
-
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={addVaccine} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add</button>
                     <button onClick={()=>{setShowAddVaccine(false);setShowPuppySchedule(false);}} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
@@ -390,7 +367,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Health */}
           {tab==="health"&&(
             <div>
               {lbl("Health Notes")}
@@ -398,7 +374,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Heat Cycle */}
           {tab==="heat"&&(
             <div>
               {activeDog.gender==="Male"&&<div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",fontSize:13,color:"var(--color-text-secondary)",marginBottom:12}}>Heat cycle tracking is only applicable for female dogs.</div>}
@@ -439,10 +414,8 @@ export default function DogProfile() {
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                         <div>{lbl("Last Heat Date")}
                           <input type="date" value={newHeat.lastHeat} onChange={e=>{
-                            const v=e.target.value;
-                            const w=getMatingWindow(activeDog.breed);
-                            const cycle=getBreedCycle(activeDog.breed);
-                            setNewHeat(p=>({...p,lastHeat:v,readyToMate:v?addDays(v,w.from):p.readyToMate,nextHeat:v?addDays(v,cycle.days):p.nextHeat}));
+                            const v=e.target.value; const w=getMatingWindow(activeDog.breed); const cy=getBreedCycle(activeDog.breed);
+                            setNewHeat(p=>({...p,lastHeat:v,readyToMate:v?addDays(v,w.from):p.readyToMate,nextHeat:v?addDays(v,cy.days):p.nextHeat}));
                           }} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/>
                         </div>
                         <div>{lbl("Next Heat (estimated)")}
@@ -477,7 +450,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Gallery */}
           {tab==="gallery"&&(
             <div>
               <input ref={galleryRef} type="file" accept="image/*,video/*" multiple onChange={handleGallery} style={{display:"none"}}/>
@@ -495,7 +467,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Documents */}
           {tab==="docs"&&(
             <div>
               <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",flexDirection:"column",gap:10}}>
@@ -527,7 +498,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Tab: Reminders */}
           {tab==="reminders"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -579,7 +549,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* Save Buttons */}
           <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:8}}>
             <button onClick={()=>setSaved(true)} style={{width:"100%",padding:"11px",borderRadius:"var(--border-radius-md)",border:"none",background:saved?"#1D9E75":"#534AB7",color:"#fff",fontSize:14,fontWeight:500,cursor:"pointer"}}>{saved?"✓ Profile Saved":"💾 Save Profile"}</button>
             <button onClick={()=>saveToFirebase(dogs)} disabled={syncing} style={{width:"100%",padding:"11px",borderRadius:"var(--border-radius-md)",border:"none",background:syncing?"#888":"#0F6E56",color:"#fff",fontSize:14,fontWeight:500,cursor:"pointer"}}>{syncing?"Saving...":"☁️ Sync to Firebase"}</button>
