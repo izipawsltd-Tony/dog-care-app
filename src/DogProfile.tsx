@@ -23,7 +23,7 @@ const formatDate = (d:string) => { if(!d)return""; const [y,m,day]=d.split("-");
 const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${formatDate(a)} – ${formatDate(b)}`; };
 const daysUntil = (d:string) => { if(!d)return null; return Math.ceil((new Date(d).getTime()-new Date().setHours(0,0,0,0))/(1000*60*60*24)); };
 
-type VaccineRecord = {id:string;name:string;date:string;nextDate:string};
+type VaccineRecord = {id:string;name:string;date:string;nextDate:string;completed?:boolean};
 type WormRecord = {id:string;name:string;date:string;nextDate:string;notes:string};
 type MediaItem = {id:string;type:"image"|"video";url:string;name:string;date:string};
 type DocItem = {id:string;name:string;docType:string;date:string;url:string;fileType:string};
@@ -130,7 +130,7 @@ export default function DogProfile() {
   const vaccineAlerts = activeDog?activeDog.vaccines.filter(v=>{
     const dl=daysUntil(v.nextDate);
     if(dl===null||dl>vaccineReminder.days) return false;
-    // Skip if a newer record with same name exists
+    if(v.completed) return false;
     const hasNewer=activeDog.vaccines.some(v2=>v2.name===v.name&&v2.date>v.date);
     return !hasNewer;
   }).map(v=>({name:v.name,dueDate:v.nextDate,daysLeft:daysUntil(v.nextDate)!})):[];
@@ -315,13 +315,17 @@ export default function DogProfile() {
                     </div>
                   );
                   return(
-                    <div key={i} style={{background:"var(--color-background-primary)",border:`1px solid ${showOverdue?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div key={i} style={{background:v.completed?"var(--color-background-secondary)":showOverdue?"#FCEBEB":isSoon?"#FAEEDA":"var(--color-background-primary)",border:`1px solid ${v.completed?"var(--color-border-tertiary)":showOverdue?"#F09595":isSoon?"#FAC775":"var(--color-border-tertiary)"}`,borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:v.completed?0.6:1}}>
                       <div>
-                        <div style={{fontSize:13,fontWeight:500}}>💉 {v.name}</div>
+                        <div style={{fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:6}}>
+                          💉 {v.name}
+                          {v.completed&&<span style={{fontSize:10,background:"#1D9E75",color:"#fff",padding:"1px 6px",borderRadius:99}}>Completed</span>}
+                        </div>
                         <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date given: {formatDate(v.date)}</div>
-                        {v.nextDate&&<div style={{fontSize:11,color:showOverdue?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{showOverdue?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{formatDate(v.nextDate)}</div>}
+                        {v.nextDate&&!v.completed&&<div style={{fontSize:11,color:showOverdue?"#E24B4A":isSoon?"#BA7517":"var(--color-text-secondary)",marginTop:1}}>{showOverdue?"⚠️ Overdue: ":isSoon?"⏰ Due soon: ":"Next due: "}{formatDate(v.nextDate)}</div>}
                       </div>
-                      <div style={{display:"flex",gap:6}}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                        {showOverdue&&!v.completed&&<button onClick={()=>updateDog("vaccines",activeDog.vaccines.map((x,j)=>j===i?{...x,completed:true}:x))} style={{background:"none",border:"1px solid #1D9E75",borderRadius:6,cursor:"pointer",color:"#1D9E75",fontSize:11,padding:"3px 8px"}}>✓ Mark done</button>}
                         <button onClick={()=>{setEditVaccineIdx(i);setEditVaccine({name:v.name,date:v.date,nextDate:v.nextDate});}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}>Edit</button>
                         <button onClick={()=>updateDog("vaccines",activeDog.vaccines.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
                       </div>
