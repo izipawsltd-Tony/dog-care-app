@@ -28,9 +28,9 @@ type WormRecord = {id:string;name:string;date:string;nextDate:string;notes:strin
 type MediaItem = {id:string;type:"image"|"video";url:string;name:string;date:string};
 type DocItem = {id:string;name:string;docType:string;date:string;url:string;fileType:string};
 type HeatRecord = {id:string;lastHeat:string;nextHeat:string;cycleLength:string;notes:string;readyToMate:string;matingDate:string;expectedWhelp:string;actualWhelp:string};
-type Dog = {id:string;name:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[]};
+type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[]};
 
-const newDog = (id:string): Dog => ({id,name:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[]});
+const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
 export default function DogProfile() {
@@ -201,7 +201,7 @@ export default function DogProfile() {
                     {d.avatar?<img src={d.avatar} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:22}}>🐶</span>}
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:500,fontSize:14}}>{d.name||"Unnamed"}</div>
+                    <div style={{fontWeight:500,fontSize:14}}>{d.callName?`${d.callName} (${d.name||"Unnamed"})`:d.name||"Unnamed"}</div>
                     <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>{[d.breed,d.kennel,d.dob&&age(d.dob)].filter(Boolean).join(" · ")}</div>
                     {care&&(
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
@@ -236,7 +236,7 @@ export default function DogProfile() {
               </label>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:16,fontWeight:500}}>{activeDog.name||"Unnamed"}</div>
+              <div style={{fontSize:16,fontWeight:500}}>{activeDog.callName?`${activeDog.callName} (${activeDog.name||"Unnamed"})`:activeDog.name||"Unnamed"}</div>
               {activeDog.breed&&<div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>🐾 {activeDog.breed}{activeDog.gender&&` · ${activeDog.gender}`}</div>}
               {activeDog.dob&&<div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:1}}>🎂 {age(activeDog.dob)}</div>}
               {activeDog.kennel&&<div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:1}}>🏠 {activeDog.kennel}</div>}
@@ -277,7 +277,8 @@ export default function DogProfile() {
                 );
               })()}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                <div>{lbl("Name")}{inp(activeDog.name,v=>updateDog("name",v),"Buddy, Max...")}</div>
+                <div>{lbl("Registered Name")}{inp(activeDog.name,v=>updateDog("name",v),"Full registered name...")}</div>
+                <div>{lbl("Call Name")}{inp(activeDog.callName||"",v=>updateDog("callName",v),"Buddy, Max...")}</div>
                 <div>{lbl("Breed")}<select value={activeDog.breed} onChange={e=>updateDog("breed",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select breed --</option>{BREED_LIST.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
                 <div>{lbl("Coat Colour")}<select value={activeDog.color} onChange={e=>updateDog("color",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select colour --</option>{COLOUR_LIST.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 <div>{lbl("Gender")}<select value={activeDog.gender} onChange={e=>updateDog("gender",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
