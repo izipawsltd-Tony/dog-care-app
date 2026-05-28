@@ -380,7 +380,7 @@ export default function DogProfile() {
 
                   {/* Vaccine Name */}
                   <div>{lbl("Vaccine Name")}
-                    <div style={{display:"flex",gap:8"}}>
+                    <div style={{display:"flex",gap:8}}>
                       <input value={newVaccine.name} onChange={e=>{
                         const name = e.target.value;
                         const schedule = VACCINE_SCHEDULE[name];
