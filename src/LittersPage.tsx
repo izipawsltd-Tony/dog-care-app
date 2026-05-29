@@ -802,7 +802,7 @@ export default function LittersPage() {
 
   // Check for share link in URL
   const shareId = new URLSearchParams(window.location.search).get("share");
-  if(shareId) return <PuppyShareView shareId={shareId} onBack={()=>window.history.back()}/>;
+  if(shareId) return <PuppyShareView shareId={shareId}/>;
 
   useEffect(()=>{
     const load = async () => {
