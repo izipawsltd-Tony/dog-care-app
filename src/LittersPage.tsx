@@ -293,7 +293,7 @@ function ReceiptModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>v
 }
 
 // ---- Public Share View (shown when ?share=ID in URL) ----
-function PuppyShareView({shareId}:{shareId:string}) {
+export function PuppyShareView({shareId}:{shareId:string}) {
   const [data,setData] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [lightbox,setLightbox] = useState<string|null>(null);
@@ -801,8 +801,7 @@ export default function LittersPage() {
   const [search,setSearch] = useState("");
 
   // Check for share link in URL
-  const shareId = new URLSearchParams(window.location.search).get("share");
-  if(shareId) return <PuppyShareView shareId={shareId}/>;
+  
 
   useEffect(()=>{
     const load = async () => {

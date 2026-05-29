@@ -5,7 +5,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import emailjs from "@emailjs/browser";
 import DogJournal from "./DogJournal";
 import DogProfile from "./DogProfile";
-import LittersPage from "./LittersPage";
+import LittersPage, { PuppyShareView } from "./LittersPage";
 import Login from "./Login";
 
 const REMINDER_OPTIONS = [
@@ -146,6 +146,9 @@ export default function App() {
   ];
 
   const handleLogout = async () => { await signOut(auth); };
+
+  const shareId = new URLSearchParams(window.location.search).get("share");
+  if (shareId) return <PuppyShareView shareId={shareId} />;
 
   if (authLoading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"sans-serif", color:"#888" }}>Loading...</div>;
   if (!user) return <Login />;
