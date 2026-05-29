@@ -115,8 +115,13 @@ function ShareModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>voi
         latestWeight: latestWeight?`${latestWeight.kg} kg (${formatDate(latestWeight.date)})`:"",
         vaccineInfo,
         wormInfo,
-        gallery: shareWhat!=="docs" ? (puppy.gallery||[]) : [],
-        documents: shareWhat!=="photos" ? (puppy.documents||[]).map((d:any)=>({id:d.id,name:d.name,docType:d.docType,date:d.date,fileType:d.fileType,url:d.url})) : [],
+        gallery: shareWhat!=="docs" ? (puppy.gallery||[]).map((img:any)=>({
+          id:String(img.id||""),url:String(img.url||""),name:String(img.name||""),date:String(img.date||""),
+        })) : [],
+        documents: shareWhat!=="photos" ? (puppy.documents||[]).map((d:any)=>({
+          id:String(d.id||""),name:String(d.name||""),docType:String(d.docType||"Other"),
+          date:String(d.date||""),fileType:String(d.fileType||""),url:String(d.url||""),
+        })) : [],
         createdAt: new Date().toISOString(),
         expiresAt: addDays(todayISO(),30),
       };
