@@ -64,6 +64,7 @@ export default function App() {
 
   useEffect(() => {
     const sendReminders = async () => {
+      if (!auth.currentUser) return;
       try {
         const todayKey = new Date().toISOString().split("T")[0];
         const lastSent = localStorage.getItem("lastReminderSent");
