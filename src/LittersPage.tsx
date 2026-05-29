@@ -31,6 +31,29 @@ const statusStyle = (s:string):any => ({
 const IS:React.CSSProperties = {width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"};
 const lbl = (t:string) => <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4}}>{t}</div>;
 
+// ---- Compress image before saving ----
+const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+
+
 function generatePuppyId(litterId:string, gender:string, existingPuppies:any[]) {
   const prefix = litterId ? litterId.replace(/[^A-Z0-9]/gi,"").toUpperCase().slice(0,8) : "PUP";
   const gChar = gender==="Male"?"M":gender==="Female"?"F":"X";
@@ -487,8 +510,23 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
 
   const updatePuppy = (patch:any) => onChange(litters.map(l=>l.id===litterId?{...l,puppies:l.puppies.map((p:any)=>p.id===puppy.id?{...p,...patch}:p)}:l));
   const deletePuppy = () => { if(!confirm(`Delete ${puppy.name||"this puppy"}?`))return; onChange(litters.map(l=>l.id===litterId?{...l,puppies:l.puppies.filter((p:any)=>p.id!==puppy.id)}:l)); };
-  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); r.onload=ev=>updatePuppy({gallery:[...(puppy.gallery||[]),{id:genId(),url:ev.target?.result,name:f.name,date:new Date().toLocaleDateString("en-AU")}]}); r.readAsDataURL(f); }); };
-  const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>updatePuppy({documents:[...(puppy.documents||[]),{id:genId(),name:f.name,docType:"Other",date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result,fileType:f.type}]}); r.readAsDataURL(f); };
+  const handleGallery = async (e:React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files||[]);
+    for(const f of files) {
+      const compressed = await compressImage(f);
+      updatePuppy({gallery:[...(puppy.gallery||[]),{id:genId(),url:compressed,name:f.name,date:new Date().toLocaleDateString("en-AU")}]});
+    }
+  };
+  const handleDoc = async (e:React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f)return;
+    let url: string;
+    if(f.type.startsWith("image/")) {
+      url = await compressImage(f, 1200, 0.8);
+    } else {
+      url = await new Promise(res => { const r=new FileReader(); r.onload=ev=>res(ev.target?.result as string); r.readAsDataURL(f); });
+    }
+    updatePuppy({documents:[...(puppy.documents||[]),{id:genId(),name:f.name,docType:"Other",date:new Date().toLocaleDateString("en-AU"),url,fileType:f.type}]});
+  };
   const addVaccine = () => { if(!newVax.name||!newVax.date)return; updatePuppy({vaccines:[...(puppy.vaccines||[]),{id:genId(),...newVax}]}); setNewVax({name:"",date:"",nextDate:""}); setShowAddVax(false); };
   const addWorm = () => { if(!newWorm.name||!newWorm.date)return; updatePuppy({wormRecords:[...(puppy.wormRecords||[]),{id:genId(),...newWorm}]}); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
   const addWeight = () => { if(!newWeight.kg)return; updatePuppy({weightHistory:[...(puppy.weightHistory||[]),{id:genId(),...newWeight}]}); setNewWeight({kg:"",date:todayISO(),notes:""}); setShowAddWeight(false); };

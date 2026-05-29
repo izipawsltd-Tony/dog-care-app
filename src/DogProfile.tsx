@@ -35,6 +35,28 @@ type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight
 const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[],litters:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
+const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+
+
 export default function DogProfile() {
   const [dogs,setDogs] = useState<Dog[]>([]);
   const [loadingData,setLoadingData] = useState(true);
@@ -99,8 +121,8 @@ export default function DogProfile() {
   const addWorm = () => { if(!newWorm.name||!newWorm.date||!activeDog)return; updateDog("wormRecords",[...(activeDog.wormRecords||[]),{id:genId(),...newWorm}]); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
   const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
-  const handleAvatar = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>updateDog("avatar",ev.target?.result as string); r.readAsDataURL(f); };
-  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=ev=>{ const item:MediaItem={id:genId(),type:iv?"video":"image",url:ev.target?.result as string,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); };
+  const handleAvatar = async (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const url=await compressImage(f,400,0.8); updateDog("avatar",url); };
+  const handleGallery = async (e:React.ChangeEvent<HTMLInputElement>) => { const files=Array.from(e.target.files||[]); for(const f of files){ const iv=f.type.startsWith("video/"); const url=iv?await new Promise<string>(res=>{const r=new FileReader();r.onload=ev=>res(ev.target?.result as string);r.readAsDataURL(f);}):await compressImage(f); const item:MediaItem={id:genId(),type:iv?"video":"image",url,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); } };
   const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f||!activeDog)return; const r=new FileReader(); r.onload=ev=>{ const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result as string,fileType:f.type}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d)); setNewDoc({name:"",docType:DOC_TYPES[0]}); }; r.readAsDataURL(f); };
 
   const removeGallery = (id:string) => updateDog("gallery",activeDog!.gallery.filter(g=>g.id!==id));
