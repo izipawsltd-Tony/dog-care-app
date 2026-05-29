@@ -293,7 +293,7 @@ function ReceiptModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>v
 }
 
 // ---- Public Share View (shown when ?share=ID in URL) ----
-function PuppyShareView({shareId,onBack}:{shareId:string;onBack:()=>void}) {
+function PuppyShareView({shareId}:{shareId:string}) {
   const [data,setData] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [lightbox,setLightbox] = useState<string|null>(null);
@@ -968,4 +968,3 @@ export default function LittersPage() {
     </div>
   );
 }
-
