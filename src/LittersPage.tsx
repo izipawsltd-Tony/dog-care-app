@@ -8,8 +8,9 @@ const COLLAR_COLOURS = ["Red","Blue","Green","Yellow","Pink","Purple","Orange","
 const PUPPY_STATUSES = ["Available","Deposit","Reserved","Sold","Kept"];
 const VACCINE_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"C5":{intervalDays:365,label:"Annual"},"C3":{intervalDays:365,label:"Annual"},"Rabies":{intervalDays:365,label:"Annual"},"Puppy 1st":{intervalDays:28,label:"4 weeks"},"Puppy 2nd":{intervalDays:28,label:"4 weeks"},"Puppy Final":{intervalDays:365,label:"Annual after final"},"Kennel Cough":{intervalDays:365,label:"Annual"}};
 const WORMING_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"Milbemax":{intervalDays:90,label:"Every 3 months"},"Drontal":{intervalDays:90,label:"Every 3 months"},"Interceptor":{intervalDays:30,label:"Monthly"},"Heartgard":{intervalDays:30,label:"Monthly"},"Panoramis":{intervalDays:30,label:"Monthly"},"Nexgard Spectra":{intervalDays:30,label:"Monthly"},"Other":{intervalDays:90,label:"Every 3 months"}};
+
 const EMAILJS_SERVICE = "service_1xiqii4";
-const EMAILJS_TEMPLATE = "template_5xjualp";
+const EMAILJS_TEMPLATE = "template_6nkcrjc";
 const EMAILJS_KEY = "EnExVywt47_FbtvbW";
 
 const genId = () => Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
@@ -30,100 +31,98 @@ const statusStyle = (s:string):any => ({
 const IS:React.CSSProperties = {width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"};
 const lbl = (t:string) => <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4}}>{t}</div>;
 
-// ---- Auto Puppy ID ----
 function generatePuppyId(litterId:string, gender:string, existingPuppies:any[]) {
   const prefix = litterId ? litterId.replace(/[^A-Z0-9]/gi,"").toUpperCase().slice(0,8) : "PUP";
   const gChar = gender==="Male"?"M":gender==="Female"?"F":"X";
-  const sameGender = existingPuppies.filter(p=>(p.gender||"")===gender).length + 1;
+  const sameGender = existingPuppies.filter((p:any)=>(p.gender||"")===gender).length + 1;
   return `${prefix}-${gChar}${sameGender}`;
 }
 
-// ---- Receipt Generator (HTML → print as PDF) ----
 function generateReceiptHTML(puppy:any, litter:any, payment:{amount:string;type:string;date:string;notes:string}, breederName:string) {
   const buyer = puppy.buyer||{};
-  return `
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Receipt - ${puppy.puppyId||puppy.name}</title>
-<style>
-  body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#222;font-size:14px;}
-  .header{text-align:center;border-bottom:2px solid #534AB7;padding-bottom:16px;margin-bottom:24px;}
-  .logo{font-size:28px;margin-bottom:4px;}
-  .brand{font-size:20px;font-weight:700;color:#534AB7;}
-  .receipt-title{font-size:18px;font-weight:600;margin:16px 0 4px;}
-  .receipt-num{font-size:12px;color:#666;}
-  table{width:100%;border-collapse:collapse;margin:16px 0;}
-  td{padding:8px 12px;border-bottom:1px solid #eee;}
-  td:first-child{font-weight:500;color:#555;width:40%;}
-  .amount-row td{font-size:18px;font-weight:700;color:#534AB7;border-top:2px solid #534AB7;border-bottom:2px solid #534AB7;}
-  .footer{margin-top:32px;font-size:12px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:16px;}
-  .badge{display:inline-block;background:#EEEDFE;color:#3C3489;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:500;}
-</style></head><body>
-<div class="header">
-  <div class="logo">🐾</div>
-  <div class="brand">${breederName||"IziPaws Kennel"}</div>
-  <div class="receipt-title">${payment.type==="Deposit"?"Deposit Receipt":"Payment Receipt"}</div>
-  <div class="receipt-num">Receipt #${genId()} · ${payment.date||todayDisplay()}</div>
-</div>
-
+  const receiptNum = genId();
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt - ${puppy.puppyId||puppy.name}</title>
+<style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#222;font-size:14px;}.header{text-align:center;border-bottom:2px solid #534AB7;padding-bottom:16px;margin-bottom:24px;}.brand{font-size:20px;font-weight:700;color:#534AB7;}.receipt-title{font-size:18px;font-weight:600;margin:16px 0 4px;}.receipt-num{font-size:12px;color:#666;}table{width:100%;border-collapse:collapse;margin:16px 0;}td{padding:8px 12px;border-bottom:1px solid #eee;}td:first-child{font-weight:500;color:#555;width:40%;}.amount-row td{font-size:18px;font-weight:700;color:#534AB7;border-top:2px solid #534AB7;border-bottom:2px solid #534AB7;}.footer{margin-top:32px;font-size:12px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:16px;}.badge{display:inline-block;background:#EEEDFE;color:#3C3489;padding:2px 10px;border-radius:99px;font-size:12px;}</style></head><body>
+<div class="header"><div style="font-size:28px">🐾</div><div class="brand">IziPaws</div><div class="receipt-title">${payment.type} Receipt</div><div class="receipt-num">Receipt #${receiptNum} · ${payment.date||todayDisplay()}</div></div>
 <table>
-  <tr><td>Puppy</td><td><strong>${puppy.name||"Unnamed"}</strong> ${puppy.gender?"("+puppy.gender+")":""}</td></tr>
-  ${puppy.puppyId?`<tr><td>Puppy ID</td><td>${puppy.puppyId}</td></tr>`:""}
-  ${puppy.colour?`<tr><td>Colour</td><td>${puppy.colour}</td></tr>`:""}
-  ${litter.litterId?`<tr><td>Litter</td><td>${litter.litterId}</td></tr>`:""}
-  ${litter.dob?`<tr><td>Date of Birth</td><td>${formatDate(litter.dob)}</td></tr>`:""}
-  ${litter.sire?`<tr><td>Sire</td><td>${litter.sire}</td></tr>`:""}
-  ${litter.dam?`<tr><td>Dam</td><td>${litter.dam}</td></tr>`:""}
+<tr><td>Puppy</td><td><strong>${puppy.name||"Unnamed"}</strong> ${puppy.gender?"("+puppy.gender+")":""}</td></tr>
+${puppy.puppyId?`<tr><td>Puppy ID</td><td>${puppy.puppyId}</td></tr>`:""}
+${puppy.microchip?`<tr><td>Microchip</td><td>${puppy.microchip}</td></tr>`:""}
+${puppy.colour?`<tr><td>Colour</td><td>${puppy.colour}</td></tr>`:""}
+${litter.litterId?`<tr><td>Litter</td><td>${litter.litterId}</td></tr>`:""}
+${litter.dob?`<tr><td>Date of Birth</td><td>${formatDate(litter.dob)}</td></tr>`:""}
+${litter.sire?`<tr><td>Sire</td><td>${litter.sire}</td></tr>`:""}
+${litter.dam?`<tr><td>Dam</td><td>${litter.dam}</td></tr>`:""}
 </table>
-
 <table>
-  <tr><td>Buyer</td><td><strong>${buyer.name||"—"}</strong></td></tr>
-  ${buyer.phone?`<tr><td>Phone</td><td>${buyer.phone}</td></tr>`:""}
-  ${buyer.email?`<tr><td>Email</td><td>${buyer.email}</td></tr>`:""}
-  ${buyer.address?`<tr><td>Address</td><td>${buyer.address}</td></tr>`:""}
+<tr><td>Buyer</td><td><strong>${buyer.name||"—"}</strong></td></tr>
+${buyer.phone?`<tr><td>Phone</td><td>${buyer.phone}</td></tr>`:""}
+${buyer.email?`<tr><td>Email</td><td>${buyer.email}</td></tr>`:""}
+${buyer.address?`<tr><td>Address</td><td>${buyer.address}</td></tr>`:""}
 </table>
-
 <table>
-  <tr class="amount-row"><td>Amount Paid <span class="badge">${payment.type}</span></td><td>$${payment.amount} AUD</td></tr>
-  <tr><td>Payment Date</td><td>${payment.date||todayDisplay()}</td></tr>
-  ${payment.notes?`<tr><td>Notes</td><td>${payment.notes}</td></tr>`:""}
+<tr class="amount-row"><td>Amount Paid <span class="badge">${payment.type}</span></td><td>$${payment.amount} AUD</td></tr>
+<tr><td>Payment Date</td><td>${payment.date||todayDisplay()}</td></tr>
+${payment.notes?`<tr><td>Notes</td><td>${payment.notes}</td></tr>`:""}
 </table>
-
-<div class="footer">
-  Thank you for choosing ${breederName||"IziPaws Kennel"} 🐾<br>
-  This receipt was generated on ${todayDisplay()}
-</div>
+<div class="footer">Thank you for choosing ${breederName||"IziPaws"} 🐾<br>Generated on ${todayDisplay()}</div>
 </body></html>`;
+}
+
+// ---- Send Email helper ----
+async function sendEmail(toEmail:string, toName:string, subject:string, message:string) {
+  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+    to_email: toEmail,
+    to_name: toName||"there",
+    subject,
+    message,
+  }, EMAILJS_KEY);
 }
 
 // ---- Share Modal ----
 function ShareModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>void}) {
-  const [shareLink,setShareLink] = useState("");
+  const [shareId,setShareId] = useState("");
   const [generating,setGenerating] = useState(false);
   const [copied,setCopied] = useState(false);
   const [emailTo,setEmailTo] = useState(puppy.buyer?.email||"");
+  const [toName,setToName] = useState(puppy.buyer?.name||"");
   const [sending,setSending] = useState(false);
   const [sentMsg,setSentMsg] = useState("");
-  const [shareWhat,setShareWhat] = useState<"photos"|"docs"|"both">("both");
+  const [shareWhat,setShareWhat] = useState<"both"|"photos"|"docs">("both");
+  const [emailType,setEmailType] = useState<"enquiry"|"update"|"deposit">("update");
+
+  const shareLink = shareId ? `${window.location.origin}/?share=${shareId}` : "";
 
   const generateLink = async () => {
     setGenerating(true);
-    const shareId = genId();
-    const shareData = {
-      puppyName: puppy.name,
-      puppyId: puppy.puppyId||"",
-      colour: puppy.colour||"",
-      gender: puppy.gender||"",
-      litter: litter.litterId,
-      dob: litter.dob,
-      gallery: shareWhat!=="docs" ? (puppy.gallery||[]) : [],
-      documents: shareWhat!=="photos" ? (puppy.documents||[]).map((d:any)=>({...d,url:""})) : [],
-      createdAt: new Date().toISOString(),
-    };
     try {
-      await setDoc(doc(db,"puppyShares",shareId), shareData);
-      const link = `${window.location.origin}/share/puppy/${shareId}`;
-      setShareLink(link);
-    } catch(e) { console.error(e); }
+      const id = genId();
+      const vaccineInfo = (puppy.vaccines||[]).map((v:any)=>`${v.name} — Given: ${formatDate(v.date)}${v.nextDate?` · Next: ${formatDate(v.nextDate)}`:""}`).join("\n");
+      const wormInfo = (puppy.wormRecords||[]).map((w:any)=>`${w.name} — Given: ${formatDate(w.date)}${w.nextDate?` · Next: ${formatDate(w.nextDate)}`:""}`).join("\n");
+      const latestWeight = (puppy.weightHistory||[]).slice(-1)[0];
+      const shareData = {
+        puppyName: puppy.name||"Unnamed",
+        puppyId: puppy.puppyId||"",
+        microchip: puppy.microchip||"",
+        colour: puppy.colour||"",
+        gender: puppy.gender||"",
+        collarColour: puppy.collarColour||"",
+        status: puppy.status||"Available",
+        litterId: litter.litterId||"",
+        dob: litter.dob||"",
+        sire: litter.sire||"",
+        dam: litter.dam||"",
+        latestWeight: latestWeight?`${latestWeight.kg} kg (${formatDate(latestWeight.date)})`:"",
+        vaccineInfo,
+        wormInfo,
+        gallery: shareWhat!=="docs" ? (puppy.gallery||[]) : [],
+        documents: shareWhat!=="photos" ? (puppy.documents||[]).map((d:any)=>({id:d.id,name:d.name,docType:d.docType,date:d.date,fileType:d.fileType,url:d.url})) : [],
+        createdAt: new Date().toISOString(),
+        expiresAt: addDays(todayISO(),30),
+      };
+      await setDoc(doc(db,"puppyShares",id), shareData);
+      setShareId(id);
+    } catch(e){ console.error(e); }
     setGenerating(false);
   };
 
@@ -132,29 +131,47 @@ function ShareModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>voi
     setCopied(true); setTimeout(()=>setCopied(false),2000);
   };
 
-  const sendEmail = async () => {
-    if(!emailTo||!shareLink)return;
+  const getEmailContent = () => {
+    const latestWeight = (puppy.weightHistory||[]).slice(-1)[0];
+    const nextVax = (puppy.vaccines||[]).filter((v:any)=>!v.completed&&v.nextDate).sort((a:any,b:any)=>a.nextDate.localeCompare(b.nextDate))[0];
+    const nextWorm = (puppy.wormRecords||[]).filter((w:any)=>w.nextDate).sort((a:any,b:any)=>a.nextDate.localeCompare(b.nextDate))[0];
+    const nextDate = nextVax?formatDate(nextVax.nextDate):nextWorm?formatDate(nextWorm.nextDate):"TBA";
+
+    if(emailType==="enquiry") return {
+      subject: `Puppy Enquiry — ${litter.sire||""}${litter.dam?` x ${litter.dam}`:""}`,
+      message: `Thank you for your enquiry about our puppies.\n\nWe currently have ${puppy.colour||""} ${puppy.gender||""} puppies available from our ${litter.litterId||""} litter (born ${formatDate(litter.dob)}).\n\n${shareLink?"View photos and documents here:\n"+shareLink+"\n\n":""}If you would like to arrange a visit or video call to meet the puppies, please let me know a suitable time.\n\nI look forward to hearing from you.\n\nKind regards,\nIziPaws 🐾`,
+    };
+    if(emailType==="update") return {
+      subject: `Puppy Update — ${puppy.name||"Your Puppy"} 🐾`,
+      message: `Just a quick update on ${puppy.name||"your puppy"}.\n\nHe/She is doing very well, eating well and growing nicely.\n\n${latestWeight?`Current weight: ${latestWeight.kg} kg\n`:""}${nextDate!=="TBA"?`Next vaccination/worming: ${nextDate}\n`:""}\n${shareLink?"View the latest photos and documents here:\n"+shareLink+"\n\n":""}Please let me know if you would like any additional updates.\n\nKind regards,\nIziPaws 🐾`,
+    };
+    return {
+      subject: `Deposit Confirmed — ${puppy.name||"Your Puppy"} is Reserved for You! 🐾`,
+      message: `Thank you for your deposit for ${puppy.name||"your puppy"}.\n\nYour puppy is now reserved for you. We will continue to provide regular updates, photos and videos until collection day.\n\n${shareLink?"View photos and updates here:\n"+shareLink+"\n\n":""}Please feel free to contact us anytime if you have any questions.\n\nKind regards,\nIziPaws 🐾`,
+    };
+  };
+
+  const sendShareEmail = async () => {
+    if(!emailTo)return;
     setSending(true);
     try {
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-        date: todayDisplay(),
-        reminders: `Hi ${puppy.buyer?.name||"there"},\n\nHere is your puppy update for ${puppy.name||"your puppy"}!\n\nView photos and documents here:\n${shareLink}\n\nPuppy: ${puppy.name} (${puppy.colour||""} ${puppy.gender||""})\nLitter: ${litter.litterId||""}\n\nThank you 🐾`,
-        to_email: emailTo,
-      }, EMAILJS_KEY);
+      const {subject,message} = getEmailContent();
+      await sendEmail(emailTo, toName, subject, message);
       setSentMsg("✓ Email sent!");
-    } catch(e) { setSentMsg("Error sending email"); }
+    } catch(e){ setSentMsg("Error — check EmailJS"); console.error(e); }
     setSending(false);
     setTimeout(()=>setSentMsg(""),3000);
   };
 
   return (
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"var(--color-background-primary)",borderRadius:"var(--border-radius-lg)",padding:20,width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:14}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--color-background-primary)",borderRadius:"var(--border-radius-lg)",padding:20,width:"100%",maxWidth:460,display:"flex",flexDirection:"column",gap:12,maxHeight:"90vh",overflowY:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:15,fontWeight:600}}>📤 Share Puppy — {puppy.name}</div>
+          <div style={{fontSize:15,fontWeight:600}}>📤 Share — {puppy.name}</div>
           <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"var(--color-text-tertiary)"}}>✕</button>
         </div>
 
+        {/* Step 1: What to share */}
         <div>
           {lbl("What to share")}
           <div style={{display:"flex",gap:6}}>
@@ -164,27 +181,37 @@ function ShareModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>voi
           </div>
         </div>
 
-        {!shareLink?(
+        {/* Step 2: Generate link */}
+        {!shareId?(
           <button onClick={generateLink} disabled={generating} style={{width:"100%",padding:"10px",borderRadius:"var(--border-radius-md)",border:"none",background:generating?"#888":"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>
-            {generating?"Generating link...":"🔗 Generate Share Link"}
+            {generating?"Generating...":"🔗 Generate Share Link"}
           </button>
         ):(
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"10px 12px"}}>
-              <div style={{fontSize:11,color:"#3C3489",marginBottom:4}}>Share link (valid for guests):</div>
-              <div style={{fontSize:11,wordBreak:"break-all",color:"#534AB7",marginBottom:8}}>{shareLink}</div>
-              <button onClick={copyLink} style={{width:"100%",padding:"7px",borderRadius:6,border:"none",background:copied?"#1D9E75":"#534AB7",color:"#fff",fontSize:12,cursor:"pointer"}}>{copied?"✓ Copied!":"Copy Link"}</button>
-            </div>
-
-            <div style={{borderTop:"1px solid var(--color-border-tertiary)",paddingTop:10}}>
-              <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:8}}>📧 Send via Email</div>
-              <input value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="buyer@email.com" type="email" style={{...IS,marginBottom:8}}/>
-              <button onClick={sendEmail} disabled={sending||!emailTo} style={{width:"100%",padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:sending?"#888":"#1D9E75",color:"#fff",fontSize:13,cursor:"pointer"}}>
-                {sending?"Sending...":sentMsg||"Send Email"}
-              </button>
-            </div>
+          <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"10px 12px"}}>
+            <div style={{fontSize:11,color:"#3C3489",marginBottom:6,fontWeight:500}}>✅ Share link ready — valid 30 days:</div>
+            <div style={{fontSize:11,wordBreak:"break-all",color:"#534AB7",marginBottom:8,background:"#fff",padding:"6px 8px",borderRadius:6}}>{shareLink}</div>
+            <button onClick={copyLink} style={{width:"100%",padding:"7px",borderRadius:6,border:"none",background:copied?"#1D9E75":"#534AB7",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:500}}>{copied?"✓ Copied!":"📋 Copy Link"}</button>
           </div>
         )}
+
+        {/* Step 3: Email */}
+        <div style={{borderTop:"1px solid var(--color-border-tertiary)",paddingTop:12,display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>📧 Send Email to Buyer</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div>{lbl("Buyer Name")}<input value={toName} onChange={e=>setToName(e.target.value)} placeholder="Jane Smith" style={IS}/></div>
+            <div>{lbl("Email Address")}<input value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="jane@email.com" type="email" style={IS}/></div>
+          </div>
+          {lbl("Email Type")}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[{k:"enquiry",l:"🔍 Enquiry"},{k:"update",l:"📸 Puppy Update"},{k:"deposit",l:"💰 Deposit Confirm"}].map(o=>(
+              <button key={o.k} onClick={()=>setEmailType(o.k as any)} style={{flex:1,padding:"6px",borderRadius:6,fontSize:11,cursor:"pointer",border:emailType===o.k?"1.5px solid #534AB7":"1px solid var(--color-border-secondary)",background:emailType===o.k?"#EEEDFE":"var(--color-background-primary)",color:emailType===o.k?"#3C3489":"var(--color-text-secondary)",whiteSpace:"nowrap"}}>{o.l}</button>
+            ))}
+          </div>
+          {!shareId&&<div style={{fontSize:11,color:"#BA7517",background:"#FAEEDA",padding:"6px 10px",borderRadius:6}}>💡 Generate share link first to include it in the email</div>}
+          <button onClick={sendShareEmail} disabled={sending||!emailTo} style={{width:"100%",padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:sending||!emailTo?"#ccc":"#1D9E75",color:"#fff",fontSize:13,cursor:sending||!emailTo?"not-allowed":"pointer",fontWeight:500}}>
+            {sending?"Sending...":sentMsg||"Send Email"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -193,32 +220,31 @@ function ShareModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>voi
 // ---- Receipt Modal ----
 function ReceiptModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>void}) {
   const [payment,setPayment] = useState({amount:"",type:"Deposit",date:todayDisplay(),notes:""});
-  const [breederName,setBreederName] = useState("IziPaws Kennel");
+  const [breederName,setBreederName] = useState("IziPaws");
   const [emailTo,setEmailTo] = useState(puppy.buyer?.email||"");
+  const [toName,setToName] = useState(puppy.buyer?.name||"");
   const [sending,setSending] = useState(false);
   const [sentMsg,setSentMsg] = useState("");
 
   const printReceipt = () => {
+    if(!payment.amount){alert("Please enter payment amount");return;}
     const html = generateReceiptHTML(puppy,litter,payment,breederName);
     const w = window.open("","_blank");
     if(!w)return;
     w.document.write(html);
     w.document.close();
-    w.onload = ()=>{ w.print(); };
+    setTimeout(()=>w.print(),500);
   };
 
   const sendReceiptEmail = async () => {
     if(!emailTo||!payment.amount)return;
     setSending(true);
     const buyer = puppy.buyer||{};
+    const receiptText = `━━━━━━━━━━━━━━━━━━━━━━\n🐾 ${breederName}\n${payment.type.toUpperCase()} RECEIPT\n━━━━━━━━━━━━━━━━━━━━━━\n\nPuppy: ${puppy.name||"Unnamed"} ${puppy.gender?"("+puppy.gender+")":""}\n${puppy.puppyId?"Puppy ID: "+puppy.puppyId+"\n":""}${puppy.colour?"Colour: "+puppy.colour+"\n":""}Litter: ${litter.litterId||"—"}\nDate of Birth: ${formatDate(litter.dob)||"—"}\n${litter.sire?"Sire: "+litter.sire+"\n":""}${litter.dam?"Dam: "+litter.dam+"\n":""}\nBuyer: ${buyer.name||"—"}\n${buyer.phone?"Phone: "+buyer.phone+"\n":""}${buyer.address?"Address: "+buyer.address+"\n":""}\n━━━━━━━━━━━━━━━━━━━━━━\nAmount Paid: $${payment.amount} AUD\nPayment Type: ${payment.type}\nDate: ${payment.date}\n${payment.notes?"Notes: "+payment.notes+"\n":""}\n━━━━━━━━━━━━━━━━━━━━━━\n\nThank you for choosing ${breederName} 🐾`;
     try {
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-        date: todayDisplay(),
-        reminders: `Hi ${buyer.name||"there"},\n\nPlease find your ${payment.type} receipt below:\n\n━━━━━━━━━━━━━━━━━\n🐾 ${breederName}\n${payment.type} RECEIPT\n━━━━━━━━━━━━━━━━━\nPuppy: ${puppy.name||"Unnamed"} (${puppy.colour||""} ${puppy.gender||""})\nPuppy ID: ${puppy.puppyId||"—"}\nLitter: ${litter.litterId||"—"}\nDate of Birth: ${formatDate(litter.dob)||"—"}\n\nBuyer: ${buyer.name||"—"}\nPhone: ${buyer.phone||"—"}\n\nAmount: $${payment.amount} AUD\nType: ${payment.type}\nDate: ${payment.date}\n${payment.notes?"Notes: "+payment.notes:""}\n━━━━━━━━━━━━━━━━━\nThank you for choosing ${breederName} 🐾`,
-        to_email: emailTo,
-      }, EMAILJS_KEY);
+      await sendEmail(emailTo, toName, `${payment.type} Receipt — ${puppy.name||"Your Puppy"} 🐾`, receiptText);
       setSentMsg("✓ Receipt sent!");
-    } catch(e){ setSentMsg("Error sending"); }
+    } catch(e){ setSentMsg("Error — check EmailJS"); console.error(e); }
     setSending(false);
     setTimeout(()=>setSentMsg(""),3000);
   };
@@ -231,41 +257,158 @@ function ReceiptModal({puppy,litter,onClose}:{puppy:any;litter:any;onClose:()=>v
           <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"var(--color-text-tertiary)"}}>✕</button>
         </div>
 
-        <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"10px 12px",fontSize:12,color:"#3C3489"}}>
-          🐾 Buyer: <strong>{puppy.buyer?.name||"No buyer info"}</strong>{puppy.buyer?.phone&&` · ${puppy.buyer.phone}`}
-        </div>
+        {puppy.buyer?.name&&(
+          <div style={{background:"#EEEDFE",borderRadius:"var(--border-radius-md)",padding:"8px 12px",fontSize:12,color:"#3C3489"}}>
+            👤 <strong>{puppy.buyer.name}</strong>{puppy.buyer.phone&&` · ${puppy.buyer.phone}`}{puppy.buyer.email&&` · ${puppy.buyer.email}`}
+          </div>
+        )}
 
         <div>{lbl("Breeder / Kennel Name")}<input value={breederName} onChange={e=>setBreederName(e.target.value)} style={IS}/></div>
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <div>
-            {lbl("Payment Type")}
-            <select value={payment.type} onChange={e=>setPayment(p=>({...p,type:e.target.value}))} style={IS}>
-              <option>Deposit</option>
-              <option>Full Payment</option>
-              <option>Balance</option>
-              <option>Other</option>
-            </select>
-          </div>
+          <div>{lbl("Payment Type")}<select value={payment.type} onChange={e=>setPayment(p=>({...p,type:e.target.value}))} style={IS}><option>Deposit</option><option>Full Payment</option><option>Balance</option><option>Other</option></select></div>
           <div>{lbl("Amount (AUD $)")}<input value={payment.amount} onChange={e=>setPayment(p=>({...p,amount:e.target.value}))} placeholder="500" style={IS}/></div>
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <div>{lbl("Payment Date")}<input value={payment.date} onChange={e=>setPayment(p=>({...p,date:e.target.value}))} placeholder={todayDisplay()} style={IS}/></div>
+          <div>{lbl("Payment Date")}<input value={payment.date} onChange={e=>setPayment(p=>({...p,date:e.target.value}))} style={IS}/></div>
           <div>{lbl("Notes")}<input value={payment.notes} onChange={e=>setPayment(p=>({...p,notes:e.target.value}))} placeholder="Bank transfer, cash..." style={IS}/></div>
         </div>
 
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={printReceipt} disabled={!payment.amount} style={{flex:1,padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:payment.amount?"#534AB7":"#ccc",color:"#fff",fontSize:13,cursor:payment.amount?"pointer":"not-allowed"}}>🖨️ Print / Save PDF</button>
-        </div>
+        <button onClick={printReceipt} style={{width:"100%",padding:"10px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer",fontWeight:500}}>🖨️ Print / Save as PDF</button>
 
-        <div style={{borderTop:"1px solid var(--color-border-tertiary)",paddingTop:12}}>
-          <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:8}}>📧 Email Receipt</div>
-          <input value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="buyer@email.com" type="email" style={{...IS,marginBottom:8}}/>
-          <button onClick={sendReceiptEmail} disabled={sending||!emailTo||!payment.amount} style={{width:"100%",padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:sending||!emailTo||!payment.amount?"#ccc":"#1D9E75",color:"#fff",fontSize:13,cursor:"pointer"}}>
+        <div style={{borderTop:"1px solid var(--color-border-tertiary)",paddingTop:12,display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>📧 Email Receipt to Buyer</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div>{lbl("Buyer Name")}<input value={toName} onChange={e=>setToName(e.target.value)} placeholder="Jane Smith" style={IS}/></div>
+            <div>{lbl("Email Address")}<input value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="jane@email.com" type="email" style={IS}/></div>
+          </div>
+          <button onClick={sendReceiptEmail} disabled={sending||!emailTo||!payment.amount} style={{width:"100%",padding:"9px",borderRadius:"var(--border-radius-md)",border:"none",background:sending||!emailTo||!payment.amount?"#ccc":"#1D9E75",color:"#fff",fontSize:13,cursor:sending||!emailTo||!payment.amount?"not-allowed":"pointer",fontWeight:500}}>
             {sending?"Sending...":sentMsg||"Send Receipt by Email"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Public Share View (shown when ?share=ID in URL) ----
+function PuppyShareView({shareId,onBack}:{shareId:string;onBack:()=>void}) {
+  const [data,setData] = useState<any>(null);
+  const [loading,setLoading] = useState(true);
+  const [lightbox,setLightbox] = useState<string|null>(null);
+  const [notFound,setNotFound] = useState(false);
+
+  useEffect(()=>{
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db,"puppyShares",shareId));
+        if(snap.exists()) setData(snap.data());
+        else setNotFound(true);
+      } catch(e){ setNotFound(true); }
+      setLoading(false);
+    };
+    load();
+  },[shareId]);
+
+  if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#666"}}>Loading puppy info... 🐾</div>;
+  if(notFound||!data) return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#666",gap:12}}>
+      <div style={{fontSize:48}}>🐾</div>
+      <div style={{fontSize:18,fontWeight:500}}>Link not found or expired</div>
+      <div style={{fontSize:13,color:"#999"}}>This share link may have expired or been removed.</div>
+    </div>
+  );
+
+  return (
+    <div style={{fontFamily:"sans-serif",maxWidth:560,margin:"0 auto",padding:"16px 12px",color:"#222"}}>
+      {lightbox&&(
+        <div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"90vh",borderRadius:8,objectFit:"contain"}}/>
+          <button onClick={()=>setLightbox(null)} style={{position:"absolute",top:16,right:16,width:32,height:32,borderRadius:"50%",background:"#fff",border:"none",cursor:"pointer",fontSize:16}}>✕</button>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{textAlign:"center",padding:"20px 0",borderBottom:"2px solid #534AB7",marginBottom:20}}>
+        <div style={{fontSize:36,marginBottom:4}}>🐾</div>
+        <div style={{fontSize:20,fontWeight:700,color:"#534AB7"}}>IziPaws</div>
+        <div style={{fontSize:12,color:"#999",marginTop:4}}>Puppy Information</div>
+      </div>
+
+      {/* Puppy info */}
+      <div style={{background:"#EEEDFE",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontSize:18,fontWeight:600,marginBottom:8}}>{data.puppyName}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 16px",fontSize:13}}>
+          {data.gender&&<div>Gender: <strong>{data.gender}</strong></div>}
+          {data.colour&&<div>Colour: <strong>{data.colour}</strong></div>}
+          {data.puppyId&&<div>ID: <strong>{data.puppyId}</strong></div>}
+          {data.microchip&&<div>Microchip: <strong>{data.microchip}</strong></div>}
+          {data.dob&&<div>Born: <strong>{formatDate(data.dob)}</strong></div>}
+          {data.litterId&&<div>Litter: <strong>{data.litterId}</strong></div>}
+          {data.sire&&<div>Sire: <strong>{data.sire}</strong></div>}
+          {data.dam&&<div>Dam: <strong>{data.dam}</strong></div>}
+          {data.latestWeight&&<div>Weight: <strong>{data.latestWeight}</strong></div>}
+        </div>
+      </div>
+
+      {/* Vaccine / Worming */}
+      {(data.vaccineInfo||data.wormInfo)&&(
+        <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
+          {data.vaccineInfo&&(
+            <div style={{marginBottom:data.wormInfo?12:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#534AB7",marginBottom:6}}>💉 Vaccinations</div>
+              {data.vaccineInfo.split("\n").filter(Boolean).map((v:string,i:number)=>(
+                <div key={i} style={{fontSize:12,color:"#444",padding:"3px 0",borderBottom:"1px solid #f5f5f5"}}>✓ {v}</div>
+              ))}
+            </div>
+          )}
+          {data.wormInfo&&(
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:"#534AB7",marginBottom:6}}>🐛 Worming</div>
+              {data.wormInfo.split("\n").filter(Boolean).map((w:string,i:number)=>(
+                <div key={i} style={{fontSize:12,color:"#444",padding:"3px 0",borderBottom:"1px solid #f5f5f5"}}>✓ {w}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Photos */}
+      {data.gallery&&data.gallery.length>0&&(
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#534AB7",marginBottom:10}}>🖼️ Photos ({data.gallery.length})</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+            {data.gallery.map((img:any,i:number)=>(
+              <div key={i} style={{position:"relative",aspectRatio:"1",borderRadius:8,overflow:"hidden",cursor:"pointer",background:"#f5f5f5"}} onClick={()=>setLightbox(img.url)}>
+                <img src={img.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                {img.date&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.45)",color:"#fff",fontSize:9,padding:"2px 4px",textAlign:"center"}}>{img.date}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Documents */}
+      {data.documents&&data.documents.length>0&&(
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#534AB7",marginBottom:10}}>📁 Documents ({data.documents.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {data.documents.map((d:any,i:number)=>(
+              <div key={i} style={{background:"#fff",border:"1px solid #eee",borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:13}}>{d.fileType?.includes("pdf")?"📄":d.fileType?.includes("image")?"🖼️":"📎"} {d.name}</div>
+                  <div style={{fontSize:11,color:"#999",marginTop:2}}>{d.date}</div>
+                </div>
+                <a href={d.url} download={d.name} style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"1px solid #534AB7",color:"#534AB7",textDecoration:"none",fontWeight:500}}>⬇ Download</a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginTop:24,paddingTop:16,borderTop:"1px solid #eee"}}>
+        Shared by IziPaws 🐾 · {formatDate(data.createdAt?.split("T")[0]||"")}
       </div>
     </div>
   );
@@ -370,7 +513,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
         </div>
       )}
 
-      {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",userSelect:"none"}} onClick={()=>setOpen(o=>!o)}>
         <div style={{width:44,height:44,borderRadius:"50%",overflow:"hidden",flexShrink:0,background:"var(--color-background-secondary)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,border:"1.5px solid var(--color-border-tertiary)",position:"relative"}}>
           {(puppy.gallery||[]).length>0?<img src={puppy.gallery[0].url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"🐶"}
@@ -381,14 +523,12 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             {puppy.name||"Unnamed"}
             {puppy.gender&&<span style={{fontSize:11,color:puppy.gender==="Male"?"#185FA5":"#993556"}}>{puppy.gender==="Male"?"♂":"♀"}</span>}
           </div>
-          <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>
-            {[puppy.puppyId&&`ID: ${puppy.puppyId}`,puppy.colour,latestWeight&&`${latestWeight.kg} kg`].filter(Boolean).join(" · ")}
-          </div>
+          <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>{[puppy.puppyId&&`ID: ${puppy.puppyId}`,puppy.colour,latestWeight&&`${latestWeight.kg} kg`].filter(Boolean).join(" · ")}</div>
         </div>
         <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
           <span style={{fontSize:11,padding:"3px 8px",borderRadius:99,fontWeight:500,background:st.bg,color:st.color}}>{puppy.status||"Available"}</span>
-          <button onClick={e=>{e.stopPropagation();setShowShare(true);}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 7px"}}>📤</button>
-          <button onClick={e=>{e.stopPropagation();setShowReceipt(true);}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 7px"}}>🧾</button>
+          <button onClick={e=>{e.stopPropagation();setShowShare(true);}} title="Share photos & docs" style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 7px"}}>📤</button>
+          <button onClick={e=>{e.stopPropagation();setShowReceipt(true);}} title="Create receipt" style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 7px"}}>🧾</button>
           <span style={{fontSize:14,color:"var(--color-text-tertiary)",transform:open?"rotate(180deg)":"none",transition:"transform 0.18s"}}>▾</span>
           <button onClick={e=>{e.stopPropagation();deletePuppy();}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16,padding:"0 2px"}}>✕</button>
         </div>
@@ -400,7 +540,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             {SUBTABS.map(t=><button key={t.k} onClick={()=>setSubTab(t.k)} style={{padding:"5px 9px",borderRadius:"var(--border-radius-md)",fontSize:11,cursor:"pointer",border:subTab===t.k?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:subTab===t.k?"#EEEDFE":"var(--color-background-primary)",color:subTab===t.k?"#3C3489":"var(--color-text-secondary)",whiteSpace:"nowrap"}}>{t.label}</button>)}
           </div>
 
-          {/* INFO */}
           {subTab==="info"&&(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -408,8 +547,8 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
                 <div>{lbl("Gender")}<select value={puppy.gender||""} onChange={e=>updatePuppy({gender:e.target.value})} style={IS}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
                 <div>
                   {lbl("Puppy ID")}
-                  <input value={puppy.puppyId||""} onChange={e=>updatePuppy({puppyId:e.target.value})} placeholder="Auto-generated..." style={IS}/>
-                  <div style={{fontSize:10,color:"#534AB7",marginTop:2,cursor:"pointer"}} onClick={()=>updatePuppy({puppyId:generatePuppyId(litter.litterId,puppy.gender,litter.puppies.filter((p:any)=>p.id!==puppy.id))})}>↻ Auto-generate</div>
+                  <input value={puppy.puppyId||""} onChange={e=>updatePuppy({puppyId:e.target.value})} placeholder="Auto-generate below..." style={IS}/>
+                  <div style={{fontSize:10,color:"#534AB7",marginTop:2,cursor:"pointer"}} onClick={()=>updatePuppy({puppyId:generatePuppyId(litter.litterId,puppy.gender,litter.puppies.filter((p:any)=>p.id!==puppy.id))})}>↻ Auto-generate ID</div>
                 </div>
                 <div>{lbl("Microchip No.")}<input value={puppy.microchip||""} onChange={e=>updatePuppy({microchip:e.target.value})} placeholder="(add when available)" style={IS}/></div>
                 <div>{lbl("Coat Colour")}<select value={puppy.colour||""} onChange={e=>updatePuppy({colour:e.target.value})} style={IS}><option value="">-- Select --</option>{COLOUR_LIST.map(c=><option key={c}>{c}</option>)}</select></div>
@@ -418,18 +557,12 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
                   <select value={puppy.collarColour||""} onChange={e=>updatePuppy({collarColour:e.target.value})} style={IS}><option value="">-- None --</option>{COLLAR_COLOURS.map(c=><option key={c}>{c}</option>)}</select>
                   {puppy.collarColour&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}><div style={{width:14,height:14,borderRadius:"50%",background:puppy.collarColour.toLowerCase(),border:"1px solid var(--color-border-secondary)"}}/><span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{puppy.collarColour}</span></div>}
                 </div>
-                <div style={{gridColumn:"1/-1"}}>
-                  {lbl("Status")}
-                  <select value={puppy.status||"Available"} onChange={e=>updatePuppy({status:e.target.value})} style={IS}>{PUPPY_STATUSES.map(s=><option key={s}>{s}</option>)}</select>
-                </div>
+                <div style={{gridColumn:"1/-1"}}>{lbl("Status")}<select value={puppy.status||"Available"} onChange={e=>updatePuppy({status:e.target.value})} style={IS}>{PUPPY_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
               </div>
-
-              {/* Action buttons */}
               <div style={{display:"flex",gap:8}}>
                 <button onClick={()=>setShowShare(true)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid #534AB7",background:"#EEEDFE",color:"#3C3489",fontSize:12,cursor:"pointer"}}>📤 Share Photos & Docs</button>
                 <button onClick={()=>setShowReceipt(true)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid #1D9E75",background:"#E1F5EE",color:"#0F6E56",fontSize:12,cursor:"pointer"}}>🧾 Create Receipt</button>
               </div>
-
               {(puppy.status==="Reserved"||puppy.status==="Sold"||puppy.status==="Deposit")&&(
                 <div style={{background:"var(--color-background-primary)",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-tertiary)",overflow:"hidden"}}>
                   <div style={{padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowBuyer(o=>!o)}>
@@ -453,7 +586,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             </div>
           )}
 
-          {/* WEIGHT */}
           {subTab==="weight"&&(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {(puppy.weightHistory||[]).length===0&&!showAddWeight&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No weight records yet</div>}
@@ -503,7 +635,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             </div>
           )}
 
-          {/* VACCINE */}
           {subTab==="vaccine"&&(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {(puppy.vaccines||[]).length===0&&!showAddVax&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No vaccine records yet</div>}
@@ -543,7 +674,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             </div>
           )}
 
-          {/* WORMING */}
           {subTab==="worming"&&(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {(puppy.wormRecords||[]).length===0&&!showAddWorm&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No worming records yet</div>}
@@ -582,7 +712,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             </div>
           )}
 
-          {/* GALLERY */}
           {subTab==="gallery"&&(
             <div>
               <input ref={galleryRef} type="file" accept="image/*" multiple onChange={handleGallery} style={{display:"none"}}/>
@@ -600,7 +729,6 @@ function PuppyCard({puppy,litterId,litter,litters,onChange}:{puppy:any;litterId:
             </div>
           )}
 
-          {/* DOCS */}
           {subTab==="docs"&&(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {(puppy.documents||[]).length===0&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No documents yet</div>}
@@ -672,6 +800,10 @@ export default function LittersPage() {
   const [newPuppy,setNewPuppy] = useState({name:"",gender:"",colour:"",collarColour:"",puppyId:"",microchip:"",status:"Available",buyer:{},vaccines:[],wormRecords:[],weightHistory:[],gallery:[],documents:[]});
   const [search,setSearch] = useState("");
 
+  // Check for share link in URL
+  const shareId = new URLSearchParams(window.location.search).get("share");
+  if(shareId) return <PuppyShareView shareId={shareId} onBack={()=>window.history.back()}/>;
+
   useEffect(()=>{
     const load = async () => {
       try {
@@ -737,9 +869,7 @@ export default function LittersPage() {
           <button onClick={()=>{setShowAddLitter(true);setEditingLitterId(null);}} style={{padding:"8px 14px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ New Litter</button>
         </div>
       </div>
-
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search by litter ID, sire or dam..." style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none",marginBottom:14}}/>
-
       {showAddLitter&&(
         <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",border:"1px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>New Litter</div>
@@ -762,14 +892,12 @@ export default function LittersPage() {
           </div>
         </div>
       )}
-
       {filtered.length===0&&!showAddLitter&&(
         <div style={{textAlign:"center",padding:"48px 0",color:"var(--color-text-tertiary)",fontSize:13}}>
           <div style={{fontSize:40,marginBottom:12}}>🐾</div>
           <div>{search?"No litters found":"No litters recorded yet — click + New Litter"}</div>
         </div>
       )}
-
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         {filtered.map(litter=>{
           const exp=expandedIds.has(litter.id);
@@ -784,10 +912,7 @@ export default function LittersPage() {
                   <div style={{background:"var(--color-background-secondary)",padding:"12px 14px",cursor:"pointer",userSelect:"none"}} onClick={()=>toggleLitter(litter.id)}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:500,fontSize:14,display:"flex",alignItems:"center",gap:8}}>
-                          🐾 {litter.litterId}
-                          <span style={{fontSize:11,fontWeight:400,color:"var(--color-text-secondary)"}}>Born {formatDate(litter.dob)}</span>
-                        </div>
+                        <div style={{fontWeight:500,fontSize:14,display:"flex",alignItems:"center",gap:8}}>🐾 {litter.litterId}<span style={{fontSize:11,fontWeight:400,color:"var(--color-text-secondary)"}}>Born {formatDate(litter.dob)}</span></div>
                         <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:3}}>{[litter.sire&&`Sire: ${litter.sire}`,litter.dam&&`Dam: ${litter.dam}`].filter(Boolean).join(" · ")}</div>
                         {litter.puppies.length>0&&(
                           <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
@@ -810,7 +935,6 @@ export default function LittersPage() {
                     </div>
                     {litter.notes&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:6}}>📝 {litter.notes}</div>}
                   </div>
-
                   {exp&&(
                     <div style={{padding:"14px",background:"var(--color-background-primary)",display:"flex",flexDirection:"column",gap:10}}>
                       <PuppyFilter puppies={litter.puppies} litterId={litter.id} litter={litter} litters={litters} onChange={handleLittersChange}/>
