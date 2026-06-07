@@ -82,9 +82,14 @@ export default function App() {
             if (dl <= 30) alerts.push(`💉 ${dog.name} — ${v.name} vaccine ${dl < 0 ? `OVERDUE by ${Math.abs(dl)} days` : `due in ${dl} days`} (${formatDate(v.nextDate)})`);
           });
           dog.heatRecords?.forEach((h: any) => {
-            if (!h.nextHeat) return;
-            const dl = Math.ceil((new Date(h.nextHeat).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-            if (dl >= 0 && dl <= 30) alerts.push(`🌡️ ${dog.name} — Heat cycle expected in ${dl} days (${formatDate(h.nextHeat)})`);
+            if (h.nextHeat) {
+              const dl = Math.ceil((new Date(h.nextHeat).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+              if (dl >= 0 && dl <= 30) alerts.push(`🌡️ ${dog.name} — Heat cycle expected in ${dl} days (${formatDate(h.nextHeat)})`);
+            }
+            if (h.readyToMate) {
+              const dm = Math.ceil((new Date(h.readyToMate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+              if (dm >= -5 && dm <= 7) alerts.push(`🐾 ${dog.name} — MATING WINDOW ${dm < 0 ? "started " + Math.abs(dm) + " days ago" : "opens in " + dm + " days"} (${formatDate(h.readyToMate)})`);
+            }
           });
         });
         if (alerts.length === 0) return;
@@ -129,9 +134,17 @@ export default function App() {
       }
     });
     dog.heatRecords?.forEach((h: any) => {
+      // Alert for next heat date
       const dl = daysUntil(h.nextHeat);
       if (dl !== null && dl <= heatReminder.days) {
-        heatAlerts.push({ dogName: dog.name, kennel: dog.kennel, nextHeat: h.nextHeat, daysLeft: dl, notes: h.notes });
+        heatAlerts.push({ dogName: dog.name, kennel: dog.kennel, nextHeat: h.nextHeat, daysLeft: dl, notes: h.notes, type: "heat" });
+      }
+      // Alert for mating window (ready to mate)
+      if (h.readyToMate) {
+        const dm = daysUntil(h.readyToMate);
+        if (dm !== null && dm <= 7 && dm >= -5) {
+          heatAlerts.push({ dogName: dog.name, kennel: dog.kennel, nextHeat: h.readyToMate, daysLeft: dm, notes: "🐾 Mating window open!", type: "mating" });
+        }
       }
     });
   });
