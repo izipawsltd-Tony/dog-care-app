@@ -169,16 +169,18 @@ export default function App() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, padding: "8px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
-        <img src="/izipaws-logo-transparent.svg" alt="IziPaws" style={{ height: 32, width: "auto", marginRight: 6, flexShrink: 0 }}/>
-        {NAV.map(n => (
-          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
-            {n.label}
+      <div style={{ display: "flex", alignItems: "center", padding: "6px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, gap: 8, flexWrap: "nowrap", overflowX: "auto" }}>
+        <img src="/izipaws-logo-transparent.svg" alt="IziPaws" style={{ height: 56, width: "auto", flexShrink: 0, marginRight: 8 }}/>
+        <div style={{ display: "flex", gap: 5, alignItems: "center", flex: 1, flexWrap: "nowrap" }}>
+          {NAV.map(n => (
+            <button key={n.k} onClick={() => setPage(n.k as any)} style={{ padding: "6px 10px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666", whiteSpace: "nowrap" }}>
+              {n.label}
+            </button>
+          ))}
+          <button onClick={handleLogout} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #F09595", background: "#fff", cursor: "pointer", fontSize: 12, color: "#E24B4A", whiteSpace: "nowrap" }}>
+            🚪 Logout
           </button>
-        ))}
-        <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #F09595", background: "#fff", cursor: "pointer", fontSize: 12, color: "#E24B4A", whiteSpace: "nowrap" }}>
-          🚪 Logout
-        </button>
+        </div>
       </div>
 
       {page === "journal" && <DogJournal staffNames={staffNames} />}
