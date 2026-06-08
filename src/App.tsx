@@ -59,7 +59,10 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setAuthLoading(false); });
-    return (
+    return () => unsub();
+  }, []);
+
+  return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "var(--font-sans)", background: "var(--color-background-tertiary)" }}>
 
       {/* Sidebar */}
