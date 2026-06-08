@@ -39,9 +39,7 @@ export default function Login() {
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🐾</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>IziPaws</div>
-          <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>Dog Care Management</div>
+          <img src="/izipaws-logo-transparent.svg" alt="IziPaws" style={{ width: 200, height: "auto", marginBottom: 4 }}/>
         </div>
 
         {mode === "login" ? (
