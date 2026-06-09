@@ -156,6 +156,11 @@ export default function App() {
   return (
     <div>
       <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
+  
+  {/* iziPaws Logo */}
+  <img src="/izipaws-logo-dark.svg" alt="iziPaws" style={{ height: 40, marginRight: 8, borderRadius: 6 }} />
+
+  {NAV.map(n => (
         {NAV.map(n => (
           <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
             {n.label}
