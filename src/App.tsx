@@ -78,12 +78,12 @@ export default function App() {
             const hasNewer = dog.vaccines.some((v2: any) => v2.name === v.name && v2.date > v.date);
             if (hasNewer) return;
             const dl = Math.ceil((new Date(v.nextDate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-            if (dl <= 30) alerts.push(`💉 ${dog.name} — ${v.name} vaccine ${dl < 0 ? `OVERDUE by ${Math.abs(dl)} days` : `due in ${dl} days`} (${formatDate(v.nextDate)})`);
+            if (dl <= 30) alerts.push(`🐾 ${dog.name} — ${v.name} vaccine ${dl < 0 ? `OVERDUE by ${Math.abs(dl)} days` : `due in ${dl} days`} (${formatDate(v.nextDate)})`);
           });
           dog.heatRecords?.forEach((h: any) => {
             if (!h.nextHeat) return;
             const dl = Math.ceil((new Date(h.nextHeat).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-            if (dl >= 0 && dl <= 30) alerts.push(`🌡️ ${dog.name} — Heat cycle expected in ${dl} days (${formatDate(h.nextHeat)})`);
+            if (dl >= 0 && dl <= 30) alerts.push(`🌸 ${dog.name} — Heat cycle expected in ${dl} days (${formatDate(h.nextHeat)})`);
           });
         });
         if (alerts.length === 0) return;
@@ -155,18 +155,15 @@ export default function App() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
-  
-  {/* iziPaws Logo */}
-  <img src="/izipaws-logo-dark.svg" alt="iziPaws" style={{ height: 40, marginRight: 8, borderRadius: 6 }} />
-
-  {NAV.map(n => (
+      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderBottom: "1px solid #e5e5e5", background: "#0C3B6E", position: "sticky", top: 0, zIndex: 100, flexWrap: "wrap", alignItems: "center" }}>
+        {/* iziPaws Logo */}
+        <img src="/izipaws-logo-dark.svg" alt="iziPaws" style={{ height: 38, marginRight: 12, borderRadius: 6 }} />
         {NAV.map(n => (
-          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #534AB7" : "1px solid #ddd", background: page === n.k ? "#EEEDFE" : "#fff", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: page === n.k ? "#3C3489" : "#666" }}>
+          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #1D9E75" : "1px solid rgba(255,255,255,0.2)", background: page === n.k ? "#1D9E75" : "transparent", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: "#fff" }}>
             {n.label}
           </button>
         ))}
-        <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #F09595", background: "#fff", cursor: "pointer", fontSize: 12, color: "#E24B4A", whiteSpace: "nowrap" }}>
+        <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #F09595", background: "transparent", cursor: "pointer", fontSize: 12, color: "#F09595", whiteSpace: "nowrap" }}>
           🚪 Logout
         </button>
       </div>
@@ -191,7 +188,7 @@ export default function App() {
           {showReminderSettings && (
             <div style={{ background: "#f8f8f8", borderRadius: 12, padding: "14px", marginBottom: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {[{ label: "💉 Vaccine reminder", state: vaccineReminder, set: setVaccineReminder }, { label: "🌡️ Heat cycle reminder", state: heatReminder, set: setHeatReminder }].map(({ label, state, set }) => (
+                {[{ label: "🐾 Vaccine reminder", state: vaccineReminder, set: setVaccineReminder }, { label: "🌸 Heat cycle reminder", state: heatReminder, set: setHeatReminder }].map(({ label, state, set }) => (
                   <div key={label}>
                     <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>{label}</div>
                     {REMINDER_OPTIONS.map(opt => (
@@ -215,7 +212,7 @@ export default function App() {
             </select>
             {["all", "vaccine", "heat"].map(t => (
               <button key={t} onClick={() => setFilterType(t as any)} style={{ padding: "6px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: filterType === t ? "1.5px solid #534AB7" : "1.5px solid #ddd", background: filterType === t ? "#EEEDFE" : "#fff", color: filterType === t ? "#3C3489" : "#666" }}>
-                {t === "all" ? "All" : t === "vaccine" ? `💉 Vaccines (${vaccineAlerts.length})` : `🌡️ Heat (${heatAlerts.length})`}
+                {t === "all" ? "All" : t === "vaccine" ? `🐾 Vaccines (${vaccineAlerts.length})` : `🌸 Heat (${heatAlerts.length})`}
               </button>
             ))}
           </div>
@@ -230,13 +227,13 @@ export default function App() {
 
           {filterType !== "heat" && vaccineAlerts.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>💉 Vaccine Alerts</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>🐾 Vaccine Alerts</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {vaccineAlerts.sort((a, b) => a.daysLeft - b.daysLeft).map((a, i) => {
                   const c = urgencyColor(a.daysLeft);
                   return (
                     <div key={i} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 22 }}>💉</span>
+                      <span style={{ fontSize: 22 }}>🐾</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                           <span style={{ fontWeight: 500, fontSize: 14, color: c.text }}>{a.dogName}</span>
@@ -255,13 +252,13 @@ export default function App() {
 
           {filterType !== "vaccine" && heatAlerts.length > 0 && (
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>🌡️ Heat Cycle Alerts</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>🌸 Heat Cycle Alerts</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {heatAlerts.sort((a, b) => a.daysLeft - b.daysLeft).map((a, i) => {
                   const c = urgencyColor(a.daysLeft);
                   return (
                     <div key={i} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 22 }}>🌡️</span>
+                      <span style={{ fontSize: 22 }}>🌸</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                           <span style={{ fontWeight: 500, fontSize: 14, color: c.text }}>{a.dogName}</span>
