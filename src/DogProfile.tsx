@@ -87,9 +87,24 @@ export default function DogProfile() {
   const saveToFirebase = async (d:Dog[]) => {
     setSyncing(true);
     try {
-      await setDoc(doc(db,"dogProfiles","all"),{dogs:d,updatedAt:new Date().toISOString()});
+      // Strip large base64 from documents/gallery to avoid Firestore 1MB limit
+      const stripped = d.map(dog => ({
+        ...dog,
+        documents: (dog.documents||[]).map((doc: any) => ({
+          ...doc,
+          url: doc.url && doc.url.length > 50000 ? doc.url.substring(0, 100) + '...[file too large to store]' : doc.url
+        })),
+        gallery: (dog.gallery||[]).map((img: any) => ({
+          ...img,
+          url: img.url && img.url.length > 200000 ? '' : img.url
+        }))
+      }));
+      await setDoc(doc(db,"dogProfiles","all"),{dogs:stripped,updatedAt:new Date().toISOString()});
       setSyncMsg("✓ Saved"); setTimeout(()=>setSyncMsg(""),2000);
-    } catch(e){setSyncMsg("Error!");}
+    } catch(e:any){
+      console.error("Save error:", e);
+      setSyncMsg("Error: " + (e?.message||"unknown"));
+    }
     setSyncing(false);
   };
 
@@ -130,6 +145,7 @@ export default function DogProfile() {
         if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;
           if (f.type.startsWith('image/')) {
+            // Images: compress and save to gallery
             u.gallery = [...(d.gallery||[]), {
               id: genId(),
               type: 'image',
@@ -138,13 +154,15 @@ export default function DogProfile() {
               date: new Date().toLocaleDateString('en-AU')
             }];
           } else {
+            // PDF: save reference only (not full base64 - too large for Firestore)
             u.documents = [...(d.documents||[]), {
               id: genId(),
               name: data._fileName || f.name,
               docType: 'Breed Certificate',
               date: new Date().toLocaleDateString('en-AU'),
-              url: data._scannedPreview,
-              fileType: f.type
+              url: '',
+              fileType: f.type,
+              note: 'Scanned document - re-upload to view'
             }];
           }
         }
