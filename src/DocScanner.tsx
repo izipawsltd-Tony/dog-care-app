@@ -139,7 +139,9 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
   const applyData = () => {
     if (!result) return;
     setApplying(true);
-    onExtracted(result);
+    // Include scanned file in result so DogProfile can save it
+    const resultWithFile = { ...result, _scannedFile: file, _scannedPreview: preview, _fileName: file?.name || "Scanned Document" };
+    onExtracted(resultWithFile);
     setTimeout(() => { setApplying(false); onClose(); }, 500);
   };
 
