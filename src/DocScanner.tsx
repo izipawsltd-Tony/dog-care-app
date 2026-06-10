@@ -86,7 +86,8 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
   "ownerAddress": "owner address",
   "vaccines": [{"name": "vaccine name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
   "worming": [{"name": "product name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
-  "notes": "any other relevant notes"
+  "registrationNumber": "dog registration number, Dogs Australia number, ANKC number, kennel club number",
+"notes": "any other relevant notes"
 }
 
 Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024" convert to "2024-06-15".`;
