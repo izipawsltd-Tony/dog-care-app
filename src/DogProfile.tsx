@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import DocScanner from "./DocScanner";
 import LitterTab from "./LitterTab";
 import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -29,22 +30,88 @@ type WormRecord = {id:string;name:string;date:string;nextDate:string;notes:strin
 type MediaItem = {id:string;type:"image"|"video";url:string;name:string;date:string};
 type DocItem = {id:string;name:string;docType:string;date:string;url:string;fileType:string};
 type HeatRecord = {id:string;lastHeat:string;nextHeat:string;cycleLength:string;notes:string;readyToMate:string;matingDate:string;expectedWhelp:string;actualWhelp:string};
-type Puppy = {id:string;name:string;gender:"Male"|"Female"|"";colour:string;collarColour:string;weight:string;photo:string;status:string;buyer:any;vaccines:VaccineRecord[];wormRecords:WormRecord[];documents:DocItem[]};
-type Litter = {id:string;litterId:string;dob:string;sire:string;dam:string;maleCount:string;femaleCount:string;notes:string;puppies:Puppy[]};
+type Litter = {id:string;litterId:string;dob:string;sire:string;dam:string;maleCount:string;femaleCount:string;notes:string;puppies:any[]};
 type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[];litters:Litter[]};
 
 const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[],litters:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
+const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+
+
 export default function DogProfile() {
   const [dogs,setDogs] = useState<Dog[]>([]);
+  const [showScanner,setShowScanner] = useState(false);
+  const [showScanner,setShowScanner] = useState(false);
+
+  const handleExtracted = (data: any) => {
+    if (!activeDogId) return;
+    setDogs(prev => prev.map(d => {
+      if (d.id !== activeDogId) return d;
+      const updated: any = { ...d };
+      if (data.name) updated.name = data.name;
+      if (data.breed) updated.breed = data.breed;
+      if (data.dob) updated.dob = data.dob;
+      const handleExtracted = (data: any) => {
+    if (!activeDogId) return;
+    setDogs(prev => prev.map(d => {
+      if (d.id !== activeDogId) return d;
+      const updated: any = { ...d };
+      if (data.name) updated.name = data.name;
+      if (data.breed) updated.breed = data.breed;
+      if (data.dob) updated.dob = data.dob;
+      if (data.gender) updated.gender = data.gender;
+      if (data.microchip) updated.chipNumber = data.microchip;
+      if (data.colour) updated.colour = data.colour;
+      if (data.registrationNumber) updated.regNumber = data.registrationNumber;
+      if (data.ownerName) updated.ownerName = data.ownerName;
+      if (data.ownerPhone) updated.ownerPhone = data.ownerPhone;
+      if (data.ownerEmail) updated.ownerEmail = data.ownerEmail;
+      if (data.ownerAddress) updated.ownerAddress = data.ownerAddress;
+      if (data.vaccines?.length) updated.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
+      if (data.worming?.length) updated.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
+      return updated;
+    }));
+  };
+      if (data.gender) updated.gender = data.gender;
+      if (data.microchip) updated.chipNumber = data.microchip;
+      if (data.colour) updated.colour = data.colour;
+      if (data.ownerName) updated.ownerName = data.ownerName;
+      if (data.ownerPhone) updated.ownerPhone = data.ownerPhone;
+      if (data.ownerEmail) updated.ownerEmail = data.ownerEmail;
+      if (data.ownerAddress) updated.ownerAddress = data.ownerAddress;
+      if (data.notes) updated.healthNotes = [...(d.healthNotes||[]), { id: genId(), date: new Date().toISOString().split("T")[0], note: "[Scanned] " + data.notes }];
+      if (data.vaccines?.length) updated.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
+      if (data.worming?.length) updated.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
+      return updated;
+    }));
+    setTimeout(() => saveToFirebase(dogs), 100);
+  };
   const [loadingData,setLoadingData] = useState(true);
   const [syncing,setSyncing] = useState(false);
   const [syncMsg,setSyncMsg] = useState("");
   const [todayJournal,setTodayJournal] = useState<any>(null);
   const [activeDogId,setActiveDogId] = useState<string|null>(null);
   const [tab,setTab] = useState<"info"|"vaccine"|"worming"|"health"|"heat"|"litter"|"gallery"|"docs"|"reminders">("info");
-
   const [newVaccine,setNewVaccine] = useState({name:"",date:"",nextDate:""});
   const [showAddVaccine,setShowAddVaccine] = useState(false);
   const [showPuppySchedule,setShowPuppySchedule] = useState(false);
@@ -101,8 +168,8 @@ export default function DogProfile() {
   const addWorm = () => { if(!newWorm.name||!newWorm.date||!activeDog)return; updateDog("wormRecords",[...(activeDog.wormRecords||[]),{id:genId(),...newWorm}]); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
   const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
-  const handleAvatar = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>updateDog("avatar",ev.target?.result as string); r.readAsDataURL(f); };
-  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=ev=>{ const item:MediaItem={id:genId(),type:iv?"video":"image",url:ev.target?.result as string,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); };
+  const handleAvatar = async (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const url=await compressImage(f,400,0.8); updateDog("avatar",url); };
+  const handleGallery = async (e:React.ChangeEvent<HTMLInputElement>) => { const files=Array.from(e.target.files||[]); for(const f of files){ const iv=f.type.startsWith("video/"); const url=iv?await new Promise<string>(res=>{const r=new FileReader();r.onload=ev=>res(ev.target?.result as string);r.readAsDataURL(f);}):await compressImage(f); const item:MediaItem={id:genId(),type:iv?"video":"image",url,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); } };
   const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f||!activeDog)return; const r=new FileReader(); r.onload=ev=>{ const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result as string,fileType:f.type}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d)); setNewDoc({name:"",docType:DOC_TYPES[0]}); }; r.readAsDataURL(f); };
 
   const removeGallery = (id:string) => updateDog("gallery",activeDog!.gallery.filter(g=>g.id!==id));
@@ -228,7 +295,8 @@ export default function DogProfile() {
         <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
-            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button>
+            <button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>
+            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}><button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>Delete Profile</button>
           </div>
 
           <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
@@ -257,7 +325,8 @@ export default function DogProfile() {
             {TABS.map(t=><button key={t.k} onClick={()=>setTab(t.k as any)} style={{padding:"6px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:tab===t.k?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:tab===t.k?"#EEEDFE":"var(--color-background-primary)",color:tab===t.k?"#3C3489":"var(--color-text-secondary)"}}>{t.label}</button>)}
           </div>
 
-          {/* INFO */}
+          {showScanner&&<DocScanner onExtracted={handleExtracted} onClose={()=>setShowScanner(false)}/>}
+{showScanner&&<DocScanner onExtracted={handleExtracted} onClose={()=>setShowScanner(false)}/>}
           {tab==="info"&&(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {activeDog.kennel&&(()=>{
@@ -297,7 +366,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* VACCINES */}
           {tab==="vaccine"&&(
             <div>
               {activeDog.vaccines.length===0&&!showAddVaccine&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No vaccination records yet</div>}
@@ -377,7 +445,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* WORMING */}
           {tab==="worming"&&(
             <div>
               {(activeDog.wormRecords||[]).length===0&&!showAddWorm&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No worming records yet</div>}
@@ -441,7 +508,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* HEALTH */}
           {tab==="health"&&(
             <div>
               {lbl("Health Notes")}
@@ -449,7 +515,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* HEAT CYCLE */}
           {tab==="heat"&&(
             <div>
               {activeDog.heatRecords.length===0&&!showAddHeat&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No heat cycle records yet</div>}
@@ -513,16 +578,14 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* LITTER — dùng LitterTab component */}
           {tab==="litter"&&(
             <LitterTab
               litters={activeDog.litters||[]}
               damName={activeDog.name}
-              onChange={(updated)=>updateDog("litters",updated)}
+              onChange={(updated:any[])=>updateDog("litters",updated)}
             />
           )}
 
-          {/* GALLERY */}
           {tab==="gallery"&&(
             <div>
               <input ref={galleryRef} type="file" accept="image/*,video/*" multiple onChange={handleGallery} style={{display:"none"}}/>
@@ -531,10 +594,7 @@ export default function DogProfile() {
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                 {activeDog.gallery.map(item=>(
                   <div key={item.id} style={{position:"relative",borderRadius:"var(--border-radius-md)",overflow:"hidden",background:"var(--color-background-secondary)",aspectRatio:"1",cursor:"pointer"}} onClick={()=>setLightbox(item)}>
-                    {item.type==="image"
-                      ?<img src={item.url} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                      :<video src={item.url} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                    }
+                    {item.type==="image"?<img src={item.url} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<video src={item.url} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
                     {item.type==="video"&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:24,pointerEvents:"none"}}>▶️</div>}
                     <button onClick={e=>{e.stopPropagation();removeGallery(item.id);}} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"none",cursor:"pointer",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                   </div>
@@ -543,7 +603,6 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* DOCUMENTS */}
           {tab==="docs"&&(
             <div>
               <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",flexDirection:"column",gap:10}}>
@@ -575,14 +634,12 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* REMINDERS */}
           {tab==="reminders"&&(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{fontSize:13,fontWeight:500}}>🔔 Upcoming Reminders</div>
                 <button onClick={()=>setShowReminderSettings(o=>!o)} style={{fontSize:11,padding:"4px 10px",borderRadius:99,border:"1.5px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",cursor:"pointer"}}>⚙️ Settings</button>
               </div>
-
               {showReminderSettings&&(
                 <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
                   <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Reminder Settings</div>
@@ -592,14 +649,12 @@ export default function DogProfile() {
                   </div>
                 </div>
               )}
-
               {reminderCount===0&&(
                 <div style={{textAlign:"center",padding:"32px 0",color:"var(--color-text-tertiary)",fontSize:13}}>
                   <div style={{fontSize:32,marginBottom:8}}>✅</div>
                   No upcoming reminders within the selected timeframe
                 </div>
               )}
-
               {vaccineAlerts.length>0&&(
                 <div>
                   <div style={{fontSize:11,color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Vaccines</div>
@@ -619,7 +674,6 @@ export default function DogProfile() {
                   </div>
                 </div>
               )}
-
               {heatAlerts.length>0&&(
                 <div>
                   <div style={{fontSize:11,color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Heat Cycle</div>
@@ -642,7 +696,6 @@ export default function DogProfile() {
               )}
             </div>
           )}
-
         </>
       )}
     </div>
