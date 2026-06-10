@@ -92,8 +92,8 @@ export default function DogProfile() {
     setSyncing(false);
   };
 
-  const addDog = () => { const d=newDog("DOG-"+genId()); const u=[...dogs,d]; setDogs(u); saveToFirebase(u); setActiveDogId(d.id); setTab("info"); setSaved(false); };
-  const updateDog = (f:keyof Dog,v:any) => { setDogs(p=>p.map(d=>d.id===activeDogId?{...d,[f]:v}:d)); setSaved(false); };
+  const addDog = () => { const d=newDog("DOG-"+genId()); const u=[...dogs,d]; setDogs(u); saveToFirebase(u); setActiveDogId(d.id); setTab("info"); };
+  const updateDog = (f:keyof Dog,v:any) => { setDogs(p=>p.map(d=>d.id===activeDogId?{...d,[f]:v}:d)); };
   const deleteDog = (id:string) => { if(!confirm("Delete this profile?"))return; const u=dogs.filter(d=>d.id!==id); setDogs(u); saveToFirebase(u); setActiveDogId(null); };
 
   const addVaccine = () => { if(!newVaccine.name||!newVaccine.date||!activeDog)return; updateDog("vaccines",[...activeDog.vaccines,{id:genId(),...newVaccine}]); setNewVaccine({name:"",date:"",nextDate:""}); setShowAddVaccine(false); setShowPuppySchedule(false); };
@@ -102,8 +102,8 @@ export default function DogProfile() {
   const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
   const handleAvatar = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>updateDog("avatar",ev.target?.result as string); r.readAsDataURL(f); };
-  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=ev=>{ const item:MediaItem={id:genId(),type:iv?"video":"image",url:ev.target?.result as string,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); setSaved(false); };
-  const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f||!activeDog)return; const r=new FileReader(); r.onload=ev=>{ const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result as string,fileType:f.type}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d)); setNewDoc({name:"",docType:DOC_TYPES[0]}); }; r.readAsDataURL(f); setSaved(false); };
+  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=ev=>{ const item:MediaItem={id:genId(),type:iv?"video":"image",url:ev.target?.result as string,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); };
+  const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f||!activeDog)return; const r=new FileReader(); r.onload=ev=>{ const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result as string,fileType:f.type}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d)); setNewDoc({name:"",docType:DOC_TYPES[0]}); }; r.readAsDataURL(f); };
 
   const removeGallery = (id:string) => updateDog("gallery",activeDog!.gallery.filter(g=>g.id!==id));
   const removeDoc = (id:string) => updateDog("documents",activeDog!.documents.filter(d=>d.id!==id));
@@ -202,7 +202,7 @@ export default function DogProfile() {
             {filteredDogs.map(d=>{
               const care=d.kennel?getTodayCare(d.kennel):null;
               return(
-                <div key={d.id} onClick={()=>{setActiveDogId(d.id);setTab("info");setSaved(false);}} style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+                <div key={d.id} onClick={()=>{setActiveDogId(d.id);setTab("info");}} style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",background:"var(--color-background-secondary)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                     {d.avatar?<img src={d.avatar} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:22}}>🐶</span>}
                   </div>
