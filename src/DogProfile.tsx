@@ -100,12 +100,26 @@ export default function DogProfile() {
         if (d.id !== activeDogId) return d;
         const u: any = { ...d };
         if (data.name) u.name = data.name;
-        if (data.breed) u.breed = data.breed;
+        if (data.breed) {
+          // Match to closest breed in list
+          const breedLower = data.breed.toLowerCase();
+          const matchedBreed = BREED_LIST.find(b => 
+            breedLower.includes(b.toLowerCase()) || b.toLowerCase().includes(breedLower.split(' ')[0])
+          );
+          u.breed = matchedBreed || (BREED_LIST.includes(data.breed) ? data.breed : "Other");
+        }
         if (data.dob) u.dob = data.dob;
         if (data.gender) u.gender = data.gender;
         if (data.microchip) u.chipNumber = data.microchip;
         if (data.registrationNumber) u.regNumber = data.registrationNumber;
-        if (data.colour) u.colour = data.colour;
+        if (data.colour) {
+          // Match to closest colour in list
+          const colourLower = data.colour.toLowerCase();
+          const matchedColour = COLOUR_LIST.find(c => 
+            colourLower.includes(c.toLowerCase()) || c.toLowerCase().includes(colourLower.split(' ')[0])
+          );
+          u.colour = matchedColour || (COLOUR_LIST.includes(data.colour) ? data.colour : "Other");
+        }
         if (data.ownerName) u.ownerName = data.ownerName;
         if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
         if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
