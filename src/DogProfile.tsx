@@ -113,9 +113,9 @@ export default function DogProfile() {
         if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
         if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
         // Save scanned file to Documents or Gallery
-        if (data._scannedFile) {
+        if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;
-          if (f.type.startsWith('image/') && data._scannedPreview) {
+          if (f.type.startsWith('image/')) {
             u.gallery = [...(d.gallery||[]), {
               id: genId(),
               type: 'image',
@@ -123,7 +123,7 @@ export default function DogProfile() {
               name: data._fileName || f.name,
               date: new Date().toLocaleDateString('en-AU')
             }];
-          } else if (data._scannedPreview) {
+          } else {
             u.documents = [...(d.documents||[]), {
               id: genId(),
               name: data._fileName || f.name,
@@ -276,9 +276,11 @@ export default function DogProfile() {
       {activeDog&&(
         <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
-            <button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>
-            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
+              <button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>
+            </div>
+            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>🗑️ Delete Profile</button>
           </div>
 
           <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>

@@ -43,13 +43,10 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
     setFile(f);
     setResult(null);
     setError("");
-    if (f.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = ev => setPreview(ev.target?.result as string);
-      reader.readAsDataURL(f);
-    } else {
-      setPreview("");
-    }
+    // Always read as base64 so we can save to docs/gallery
+    const reader = new FileReader();
+    reader.onload = ev => setPreview(ev.target?.result as string);
+    reader.readAsDataURL(f);
   };
 
   const scan = async () => {
@@ -229,6 +226,7 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
                         <input
                           value={v as string}
                           onChange={e => setResult(prev => prev ? { ...prev, [k]: e.target.value } : prev)}
+                          placeholder={`e.g. ${FIELD_LABELS[k] || k}`}
                           style={IS}
                         />
                       </div>
