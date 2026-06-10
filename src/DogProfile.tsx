@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import DocScanner from "./DocScanner";
 import LitterTab from "./LitterTab";
 import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -38,6 +39,7 @@ const genId = () => Date.now().toString(36).toUpperCase();
 
 export default function DogProfile() {
   const [dogs,setDogs] = useState<Dog[]>([]);
+  const [showScanner,setShowScanner] = useState(false);
   const [loadingData,setLoadingData] = useState(true);
   const [syncing,setSyncing] = useState(false);
   const [syncMsg,setSyncMsg] = useState("");
@@ -89,6 +91,32 @@ export default function DogProfile() {
       setSyncMsg("✓ Saved"); setTimeout(()=>setSyncMsg(""),2000);
     } catch(e){setSyncMsg("Error!");}
     setSyncing(false);
+  };
+
+  const handleExtracted = (data: any) => {
+    if (!activeDogId) return;
+    setDogs(prev => {
+      const updated = prev.map(d => {
+        if (d.id !== activeDogId) return d;
+        const u: any = { ...d };
+        if (data.name) u.name = data.name;
+        if (data.breed) u.breed = data.breed;
+        if (data.dob) u.dob = data.dob;
+        if (data.gender) u.gender = data.gender;
+        if (data.microchip) u.chipNumber = data.microchip;
+        if (data.registrationNumber) u.regNumber = data.registrationNumber;
+        if (data.colour) u.colour = data.colour;
+        if (data.ownerName) u.ownerName = data.ownerName;
+        if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
+        if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
+        if (data.ownerAddress) u.ownerAddress = data.ownerAddress;
+        if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
+        if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
+        return u;
+      });
+      setTimeout(() => saveToFirebase(updated), 100);
+      return updated;
+    });
   };
 
   const addDog = () => { const d=newDog("DOG-"+genId()); const u=[...dogs,d]; setDogs(u); saveToFirebase(u); setActiveDogId(d.id); setTab("info"); };
@@ -257,6 +285,7 @@ export default function DogProfile() {
           </div>
 
           {/* INFO */}
+          {showScanner&&<DocScanner onExtracted={handleExtracted} onClose={()=>setShowScanner(false)}/>}
           {tab==="info"&&(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {activeDog.kennel&&(()=>{
@@ -647,5 +676,3 @@ export default function DogProfile() {
     </div>
   );
 }
-
-
