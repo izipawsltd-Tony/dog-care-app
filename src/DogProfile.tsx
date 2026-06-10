@@ -70,7 +70,7 @@ export default function DogProfile() {
       if (data.breed) updated.breed = data.breed;
       if (data.dob) updated.dob = data.dob;
       if (data.gender) updated.gender = data.gender;
-      if (data.microchip) updated.chipNumber = data.microchip;
+      if (data.microchip) updated.chipNumber = data.microchip; if (data.registrationNumber) updated.regNumber = data.registrationNumber;
       if (data.colour) updated.colour = data.colour;
       if (data.ownerName) updated.ownerName = data.ownerName;
       if (data.ownerPhone) updated.ownerPhone = data.ownerPhone;
