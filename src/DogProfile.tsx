@@ -36,7 +36,7 @@ type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight
 const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[],litters:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
-const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> => {
+const compressImage = (file: File, _maxWidth=800, quality=0.7): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
