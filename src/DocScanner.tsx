@@ -1,4 +1,21 @@
 import { useState, useRef } from "react";
+
+const compressImage = (dataUrl: string, maxWidth=800, quality=0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+};
+
 interface ExtractedData {
   name?: string;
   breed?: string;
@@ -43,9 +60,17 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
     setFile(f);
     setResult(null);
     setError("");
-    // Always read as base64 so we can save to docs/gallery
     const reader = new FileReader();
-    reader.onload = ev => setPreview(ev.target?.result as string);
+    reader.onload = async ev => {
+      const raw = ev.target?.result as string;
+      if (f.type.startsWith('image/')) {
+        // Compress image before storing
+        const compressed = await compressImage(raw, 800, 0.7);
+        setPreview(compressed);
+      } else {
+        setPreview(raw);
+      }
+    };
     reader.readAsDataURL(f);
   };
 
