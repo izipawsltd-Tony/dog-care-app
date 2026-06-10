@@ -86,7 +86,7 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
   "ownerAddress": "owner address",
   "vaccines": [{"name": "vaccine name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
   "worming": [{"name": "product name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
-  "registrationNumber": "dog registration number, Dogs Australia number, ANKC number, kennel club number",
+  "registrationNumber": "include the issuing organization name before the number, e.g. 'Dogs Australia 2100582145' or 'Dogs NSW 12345' or 'ANKC 67890'. Extract both organization name and number together",
 "notes": "any other relevant notes"
 }
 
