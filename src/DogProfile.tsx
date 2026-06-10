@@ -227,7 +227,7 @@ export default function DogProfile() {
         <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
-            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button>
+            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}><button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>Delete Profile</button>
           </div>
 
           <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
