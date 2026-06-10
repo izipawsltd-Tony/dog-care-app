@@ -70,7 +70,7 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
       const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
       const prompt = `You are extracting dog/pet information from a document or image. Extract ALL available information and return ONLY valid JSON with no markdown, no explanation.
-
+console.log('data:', JSON.stringify(data));
 Return this exact JSON structure (use null for missing fields, empty array [] for missing arrays):
 {
   "name": "dog's name or call name",
