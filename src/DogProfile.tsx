@@ -77,8 +77,7 @@ export default function DogProfile() {
       if (data.worming?.length) updated.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
       return updated;
     }));
-    setTimeout(() => saveToFirebase(dogs), 300);
-  };  
+setDogs(current => { saveToFirebase(current); return current; });  };  
   const [search,setSearch] = useState("");
   const [filterKennel,setFilterKennel] = useState("All");
   const [lightbox,setLightbox] = useState<MediaItem|null>(null);
