@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-
 interface ExtractedData {
   name?: string;
   breed?: string;

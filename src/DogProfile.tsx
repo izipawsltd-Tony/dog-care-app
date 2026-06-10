@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import LitterTab from "./LitterTab";
+import DocScanner from "./DocScanner";
 import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
@@ -55,6 +56,29 @@ export default function DogProfile() {
   const [editWorm,setEditWorm] = useState({name:"",date:"",nextDate:"",notes:""});
   const [newHeat,setNewHeat] = useState({lastHeat:"",nextHeat:"",cycleLength:"",notes:"",readyToMate:"",matingDate:"",expectedWhelp:"",actualWhelp:""});
   const [showAddHeat,setShowAddHeat] = useState(false);
+  const [showScanner,setShowScanner] = useState(false);
+ const handleExtracted = (data: any) => {
+    if (!activeDogId) return;
+    setDogs(prev => prev.map(d => {
+      if (d.id !== activeDogId) return d;
+      const updated: any = { ...d };
+      if (data.name) updated.name = data.name;
+      if (data.breed) updated.breed = data.breed;
+      if (data.dob) updated.dob = data.dob;
+      if (data.gender) updated.gender = data.gender;
+      if (data.microchip) updated.chipNumber = data.microchip;
+      if (data.registrationNumber) updated.regNumber = data.registrationNumber;
+      if (data.colour) updated.colour = data.colour;
+      if (data.ownerName) updated.ownerName = data.ownerName;
+      if (data.ownerPhone) updated.ownerPhone = data.ownerPhone;
+      if (data.ownerEmail) updated.ownerEmail = data.ownerEmail;
+      if (data.ownerAddress) updated.ownerAddress = data.ownerAddress;
+      if (data.vaccines?.length) updated.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
+      if (data.worming?.length) updated.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
+      return updated;
+    }));
+    setTimeout(() => saveToFirebase(dogs), 300);
+  };  
   const [search,setSearch] = useState("");
   const [filterKennel,setFilterKennel] = useState("All");
   const [lightbox,setLightbox] = useState<MediaItem|null>(null);
@@ -226,8 +250,9 @@ export default function DogProfile() {
       {activeDog&&(
         <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
-            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}><button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>Delete Profile</button>
+<button onClick={()=>{saveToFirebase(dogs);setActiveDogId(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",fontSize:13}}>← Back</button>
+            <button onClick={()=>setShowScanner(true)} style={{background:"#EEEDFE",border:"1px solid #534AB7",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#3C3489",fontSize:12,padding:"4px 10px",fontWeight:500}}>🔍 Scan Document</button>
+            <button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button><button onClick={()=>deleteDog(activeDog.id)} style={{background:"none",border:"1px solid #F09595",borderRadius:"var(--border-radius-md)",cursor:"pointer",color:"#E24B4A",fontSize:12,padding:"4px 10px"}}>Delete Profile</button>
           </div>
 
           <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
@@ -257,6 +282,7 @@ export default function DogProfile() {
           </div>
 
           {/* INFO */}
+         {showScanner&&<DocScanner onExtracted={handleExtracted} onClose={()=>setShowScanner(false)}/>}
           {tab==="info"&&(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {activeDog.kennel&&(()=>{
