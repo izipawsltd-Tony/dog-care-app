@@ -211,7 +211,7 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
         {result && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#0F6E56", fontWeight: 500 }}>
-              ✅ Tìm thấy thông tin! Kiểm tra và chỉnh sửa trước khi áp dụng.
+              ✅ Information extracted! Review and edit before applying.
             </div>
 
             {/* Basic info */}
