@@ -22,7 +22,14 @@ const WORMING_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"Mi
 const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
-const formatDate = (d:string) => { if(!d)return""; const [y,m,day]=d.split("-"); return `${day}-${m}-${y}`; };
+const formatDate = (d:string) => {
+  if(!d) return "";
+  const parts = d.split("-");
+  if(parts.length !== 3) return d;
+  // Handle both YYYY-MM-DD and DD-MM-YYYY
+  if(parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD → DD-MM-YYYY
+  return d; // already DD-MM-YYYY
+};
 const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${formatDate(a)} – ${formatDate(b)}`; };
 const daysUntil = (d:string) => { if(!d)return null; return Math.ceil((new Date(d).getTime()-new Date().setHours(0,0,0,0))/(1000*60*60*24)); };
 
