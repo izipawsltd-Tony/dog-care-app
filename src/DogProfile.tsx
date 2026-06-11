@@ -135,7 +135,7 @@ export default function DogProfile() {
         if (d.id !== activeDogId) return d;
         const u: any = { ...d };
         // Basic info: only for pedigree/registration docs
-        if (['pedigree','registration','other'].includes(docType)) {
+        if (['pedigree','registration'].includes(docType)) {
           if (data.name && !d.name) u.name = data.name;
         }
         if (data.breed && !d.breed) {
