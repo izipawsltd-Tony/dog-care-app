@@ -52,7 +52,9 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
   const [result, setResult] = useState<ExtractedData | null>(null);
   const [error, setError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [saveLocation, setSaveLocation] = useState<"docs"|"gallery">("docs");
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -162,7 +164,7 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
     if (!result) return;
     setApplying(true);
     // Include scanned file in result so DogProfile can save it
-    const resultWithFile = { ...result, _scannedFile: file, _scannedPreview: preview, _fileName: file?.name || "Scanned Document" };
+    const resultWithFile = { ...result, _scannedFile: file, _scannedPreview: preview, _fileName: file?.name || "Scanned Document", _saveLocation: saveLocation };
     onExtracted(resultWithFile);
     setTimeout(() => { setApplying(false); onClose(); }, 500);
   };
@@ -189,6 +191,7 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
         {/* Upload */}
         <div>
           <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: "none" }} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
           <div
             onClick={() => fileRef.current?.click()}
             style={{ border: "2px dashed #534AB7", borderRadius: 12, padding: "20px", textAlign: "center", cursor: "pointer", background: file ? "#EEEDFE" : "#fafafa", transition: "background 0.2s" }}

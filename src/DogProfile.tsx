@@ -70,6 +70,7 @@ const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> =
 export default function DogProfile() {
   const [dogs,setDogs] = useState<Dog[]>([]);
   const [showScanner,setShowScanner] = useState(false);
+  const [healthSubTab,setHealthSubTab] = useState<"health"|"vaccine"|"worming">("health");
   const [loadingData,setLoadingData] = useState(true);
   const [syncing,setSyncing] = useState(false);
   const [syncMsg,setSyncMsg] = useState("");
@@ -163,33 +164,35 @@ export default function DogProfile() {
         if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;
           const dogId = d.id;
-          if (f.type.startsWith('image/')) {
-            // Upload image to Storage
-            uploadToStorage(`dogProfiles/${dogId}/gallery_${Date.now()}.jpg`, data._scannedPreview)
-              .then(url => {
-                setDogs(prev => prev.map(dog => dog.id === dogId ? {
-                  ...dog, gallery: [...(dog.gallery||[]), {
-                    id: genId(), type: 'image', url,
-                    name: data._fileName || f.name,
-                    date: new Date().toLocaleDateString('en-AU')
-                  }]
-                } : dog));
-              }).catch(() => {});
-          } else {
-            // Upload PDF to Storage
-            const ext = f.name.split('.').pop() || 'pdf';
-            uploadToStorage(`dogProfiles/${dogId}/docs_${Date.now()}.${ext}`, data._scannedPreview)
-              .then(url => {
-                setDogs(prev => prev.map(dog => dog.id === dogId ? {
-                  ...dog, documents: [...(dog.documents||[]), {
-                    id: genId(), name: data._fileName || f.name,
-                    docType: 'Breed Certificate',
-                    date: new Date().toLocaleDateString('en-AU'),
-                    url, fileType: f.type
-                  }]
-                } : dog));
-              }).catch(() => {});
-          }
+          const saveToGallery = (url: string) => {
+            setDogs(prev => prev.map(dog => dog.id === dogId ? {
+              ...dog, gallery: [...(dog.gallery||[]), {
+                id: genId(), type: 'image', url,
+                name: data._fileName || f.name,
+                date: new Date().toLocaleDateString('en-AU')
+              }]
+            } : dog));
+          };
+          const saveToDocs = (url: string) => {
+            setDogs(prev => prev.map(dog => dog.id === dogId ? {
+              ...dog, documents: [...(dog.documents||[]), {
+                id: genId(), name: data._fileName || f.name,
+                docType: 'Breed Certificate',
+                date: new Date().toLocaleDateString('en-AU'),
+                url, fileType: f.type
+              }]
+            } : dog));
+          };
+          
+          const saveToGalleryChoice = data._saveLocation === 'gallery';
+          const ext = f.name.split('.').pop() || 'jpg';
+          const path = saveToGalleryChoice
+            ? `dogProfiles/${dogId}/gallery_${Date.now()}.${ext}`
+            : `dogProfiles/${dogId}/docs_${Date.now()}.${ext}`;
+          
+          uploadToStorage(path, data._scannedPreview)
+            .then(url => saveToGalleryChoice ? saveToGallery(url) : saveToDocs(url))
+            .catch(() => {});
         }
         return u;
       });
@@ -217,10 +220,13 @@ export default function DogProfile() {
   };
   const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=async ev=>{ 
       const rawUrl=ev.target?.result as string; 
-      let url=iv?rawUrl:await compressImage(f,800,0.7).catch(()=>rawUrl);
-      try {
-        if(!iv) url = await uploadToStorage(`dogProfiles/${activeDogId}/gallery_${Date.now()}.jpg`, url);
-      } catch {}
+      let url=rawUrl;
+      if(!iv) {
+        try {
+          const compressed = await compressImage(f,800,0.7);
+          url = await uploadToStorage(`dogProfiles/${activeDogId}/gallery_${Date.now()}.jpg`, compressed);
+        } catch { url = rawUrl; }
+      }
       const item:MediaItem={id:genId(),type:iv?"video":"image",url,name:f.name,date:new Date().toLocaleDateString("en-AU")}; 
       setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); 
     }; r.readAsDataURL(f); }); };
@@ -278,7 +284,7 @@ export default function DogProfile() {
   const reminderCount = vaccineAlerts.length+heatAlerts.length;
 
   const TABS = [
-    {k:"info",label:"📋 Info"},{k:"vaccine",label:"💉 Vaccines"},{k:"worming",label:"🐛 Worming"},
+    {k:"info",label:"📋 Info"},
     {k:"health",label:"🩺 Health"},
     ...(activeDog?.gender!=="Male"?[{k:"heat",label:"🌡️ Heat Cycle"},{k:"litter",label:`🐾 Litters${(activeDog?.litters||[]).length>0?` (${(activeDog?.litters||[]).length})`:""}`}]:[]),
     {k:"gallery",label:"🖼️ Gallery"},{k:"docs",label:"📁 Documents"},
@@ -438,7 +444,21 @@ export default function DogProfile() {
           )}
 
           {/* VACCINES */}
-          {tab==="vaccine"&&(
+          {tab==="health"&&(
+            <div>
+            <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+              <button onClick={()=>setHealthSubTab("health")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="health"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="health"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="health"?"#3C3489":"var(--color-text-secondary)"}}>🩺 Health Notes</button>
+              <button onClick={()=>setHealthSubTab("vaccine")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="vaccine"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="vaccine"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="vaccine"?"#3C3489":"var(--color-text-secondary)"}}>💉 Vaccines</button>
+              <button onClick={()=>setHealthSubTab("worming")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="worming"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="worming"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="worming"?"#3C3489":"var(--color-text-secondary)"}}>🐛 Worming</button>
+            </div>
+            {healthSubTab==="health"&&(
+            <div>
+              {lbl("Health Notes")}
+              <textarea value={activeDog.healthNotes} onChange={e=>updateDog("healthNotes",e.target.value)} placeholder="Allergies, chronic conditions, current medications, vet notes..." rows={6} style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",border:"1px solid var(--color-border-secondary)",borderRadius:"var(--border-radius-md)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.6,fontFamily:"var(--font-sans)"}}/>
+            </div>
+          )}
+
+            {healthSubTab==="vaccine"&&(
             <div>
               {activeDog.vaccines.length===0&&!showAddVaccine&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No vaccination records yet</div>}
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
@@ -517,8 +537,7 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* WORMING */}
-          {tab==="worming"&&(
+            {healthSubTab==="worming"&&(
             <div>
               {(activeDog.wormRecords||[]).length===0&&!showAddWorm&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No worming records yet</div>}
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
@@ -581,15 +600,8 @@ export default function DogProfile() {
             </div>
           )}
 
-          {/* HEALTH */}
-          {tab==="health"&&(
-            <div>
-              {lbl("Health Notes")}
-              <textarea value={activeDog.healthNotes} onChange={e=>updateDog("healthNotes",e.target.value)} placeholder="Allergies, chronic conditions, current medications, vet notes..." rows={6} style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",border:"1px solid var(--color-border-secondary)",borderRadius:"var(--border-radius-md)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,resize:"vertical",outline:"none",lineHeight:1.6,fontFamily:"var(--font-sans)"}}/>
             </div>
           )}
-
-          {/* HEAT CYCLE */}
           {tab==="heat"&&(
             <div>
               {activeDog.heatRecords.length===0&&!showAddHeat&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No heat cycle records yet</div>}
