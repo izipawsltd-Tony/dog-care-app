@@ -133,8 +133,9 @@ export default function DogProfile() {
       const updated = prev.map(d => {
         if (d.id !== activeDogId) return d;
         const u: any = { ...d };
-        if (data.name) u.name = data.name;
-        if (data.breed) {
+        // Only set name if profile name is empty
+        if (data.name && !d.name) u.name = data.name;
+        if (data.breed && !d.breed) {
           // Match to closest breed in list
           const breedLower = data.breed.toLowerCase();
           const matchedBreed = BREED_LIST.find(b => 
@@ -150,7 +151,7 @@ export default function DogProfile() {
         if (data.gender) u.gender = data.gender;
         if (data.microchip) u.chipNumber = data.microchip;
         if (data.registrationNumber) u.regNumber = data.registrationNumber;
-        if (data.colour) {
+        if (data.colour && !d.color) {
           const colourLower = data.colour.toLowerCase().trim();
           // First try exact match
           let matchedColour = COLOUR_LIST.find(c => c.toLowerCase() === colourLower);

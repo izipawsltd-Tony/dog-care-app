@@ -152,7 +152,23 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
         if (Array.isArray(parsed[key]) && (parsed[key] as any[]).length === 0) delete parsed[key];
       });
 
-      setResult(parsed);
+      // Convert all dates from YYYY-MM-DD to DD-MM-YYYY for display
+      const convertDates = (obj: any): any => {
+        if (!obj) return obj;
+        const result: any = {};
+        for (const k of Object.keys(obj)) {
+          if (typeof obj[k] === 'string') {
+            const m = obj[k].match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            result[k] = m ? `${m[3]}-${m[2]}-${m[1]}` : obj[k];
+          } else if (Array.isArray(obj[k])) {
+            result[k] = obj[k].map(convertDates);
+          } else {
+            result[k] = obj[k];
+          }
+        }
+        return result;
+      };
+      setResult(convertDates(parsed));
     } catch (e) {
       console.error(e);
       setError("Could not read document. Please try a clearer image or PDF.");
