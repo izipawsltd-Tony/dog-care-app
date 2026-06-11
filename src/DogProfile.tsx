@@ -150,12 +150,12 @@ export default function DogProfile() {
         if (data.microchip) u.chipNumber = data.microchip;
         if (data.registrationNumber) u.regNumber = data.registrationNumber;
         if (data.colour) {
-          // Match to closest colour in list
+          // Match to closest colour in list (Dog interface uses 'color')
           const colourLower = data.colour.toLowerCase();
           const matchedColour = COLOUR_LIST.find(c => 
             colourLower.includes(c.toLowerCase()) || c.toLowerCase().includes(colourLower.split(' ')[0])
           );
-          u.colour = matchedColour || (COLOUR_LIST.includes(data.colour) ? data.colour : "Other");
+          u.color = matchedColour || (COLOUR_LIST.includes(data.colour) ? data.colour : "Other");
         }
         if (data.ownerName) u.ownerName = data.ownerName;
         if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
@@ -396,7 +396,7 @@ export default function DogProfile() {
                 <div>{lbl("Coat Colour")}<select value={activeDog.color} onChange={e=>updateDog("color",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select colour --</option>{COLOUR_LIST.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 <div>{lbl("Gender")}<select value={activeDog.gender} onChange={e=>updateDog("gender",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
                 <div>{lbl("Date of Birth")}{inp(activeDog.dob,v=>updateDog("dob",v),"","date")}</div>
-                <div>{lbl("Weight (kg)")}{inp(activeDog.weight,v=>updateDog("weight",v),"5.2")}</div>
+                <div>{lbl("Weight (kg)")}{inp(activeDog.weight,v=>updateDog("weight",v),"e.g. 25.5")}</div>
                 <div>{lbl("Microchip Number")}{inp(activeDog.chipNumber,v=>updateDog("chipNumber",v),"900123456789")}</div>
                 <div>{lbl("Registration Number")}{inp(activeDog.regNumber,v=>updateDog("regNumber",v),"ANKC-2024-001")}</div>
               </div>
@@ -673,7 +673,11 @@ export default function DogProfile() {
                       <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>{d.docType} · {d.date}</div>
                     </div>
                     <div style={{display:"flex",gap:6}}>
-                      <a href={d.url} download={d.name} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"1px solid var(--color-border-secondary)",color:"var(--color-text-secondary)",textDecoration:"none"}}>⬇ Download</a>
+                      {d.url && d.url.length > 100 ? (
+                        <a href={d.url} download={d.name} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"1px solid var(--color-border-secondary)",color:"var(--color-text-secondary)",textDecoration:"none"}}>⬇ Download</a>
+                      ) : (
+                        <span style={{fontSize:11,color:"#999",padding:"3px 8px"}}>Re-upload to download</span>
+                      )}
                       <button onClick={()=>removeDoc(d.id)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
                     </div>
                   </div>
