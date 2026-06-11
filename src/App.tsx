@@ -46,6 +46,7 @@ const urgencyLabel = (days: number) => {
 
 export default function App() {
   const [page, setPage] = useState<"journal" | "profile" | "litters" | "reminders" | "settings">("journal");
+  const [profileKey, setProfileKey] = useState(0);
   const [staffNames, setStaffNames] = useState<string[]>(DEFAULT_STAFF);
   const [saved, setSaved] = useState(false);
   const [dogs, setDogs] = useState<any[]>([]);
@@ -159,7 +160,7 @@ export default function App() {
         {/* iziPaws Logo */}
         <img src="/izipaws-logo-dark.svg" alt="iziPaws" style={{ height: 38, marginRight: 12, borderRadius: 6 }} />
         {NAV.map(n => (
-          <button key={n.k} onClick={() => setPage(n.k as any)} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #1D9E75" : "1px solid rgba(255,255,255,0.2)", background: page === n.k ? "#1D9E75" : "transparent", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: "#fff" }}>
+          <button key={n.k} onClick={() => { setPage(n.k as any); if(n.k === "profile") setProfileKey(k => k+1); }} style={{ flex: 1, minWidth: 80, padding: "8px 6px", borderRadius: 8, border: page === n.k ? "2px solid #1D9E75" : "1px solid rgba(255,255,255,0.2)", background: page === n.k ? "#1D9E75" : "transparent", cursor: "pointer", fontWeight: page === n.k ? 600 : 400, fontSize: 12, color: "#fff" }}>
             {n.label}
           </button>
         ))}
@@ -169,7 +170,7 @@ export default function App() {
       </div>
 
       {page === "journal" && <DogJournal staffNames={staffNames} />}
-      {page === "profile" && <DogProfile />}
+      {page === "profile" && <DogProfile key={profileKey} />}
       {page === "litters" && <LittersPage />}
 
       {page === "reminders" && (
