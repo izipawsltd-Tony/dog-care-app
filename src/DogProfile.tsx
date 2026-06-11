@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import DocScanner from "./DocScanner";
 import LitterTab from "./LitterTab";
-import { db } from "./firebase";
+import { db, storage } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 const KENNELS = Array.from({ length: 13 }, (_, i) => `Kennel ${i + 1}`);
 const BREED_LIST = ["Labrador Retriever","German Shepherd","Golden Retriever","Border Collie","French Bulldog","Bulldog","Poodle","Beagle","Rottweiler","Siberian Husky","Other"];
@@ -36,6 +37,13 @@ type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight
 
 const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[],litters:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
+
+const uploadToStorage = async (path: string, dataUrl: string): Promise<string> => {
+  const storageRef = ref(storage, path);
+  await uploadString(storageRef, dataUrl, 'data_url');
+  return await getDownloadURL(storageRef);
+};
+
 
 const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> => {
   return new Promise((resolve) => {
@@ -109,19 +117,7 @@ export default function DogProfile() {
   const saveToFirebase = async (d:Dog[]) => {
     setSyncing(true);
     try {
-      // Strip large base64 from documents/gallery to avoid Firestore 1MB limit
-      const stripped = d.map(dog => ({
-        ...dog,
-        documents: (dog.documents||[]).map((doc: any) => ({
-          ...doc,
-          url: doc.url && doc.url.length > 50000 ? doc.url.substring(0, 100) + '...[file too large to store]' : doc.url
-        })),
-        gallery: (dog.gallery||[]).map((img: any) => ({
-          ...img,
-          url: img.url && img.url.length > 200000 ? '' : img.url
-        }))
-      }));
-      await setDoc(doc(db,"dogProfiles","all"),{dogs:stripped,updatedAt:new Date().toISOString()});
+      await setDoc(doc(db,"dogProfiles","all"),{dogs:d,updatedAt:new Date().toISOString()});
       setSyncMsg("✓ Saved"); setTimeout(()=>setSyncMsg(""),2000);
     } catch(e:any){
       console.error("Save error:", e);
@@ -166,26 +162,33 @@ export default function DogProfile() {
         // Save scanned file to Documents or Gallery
         if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;
+          const dogId = d.id;
           if (f.type.startsWith('image/')) {
-            // Images: compress and save to gallery
-            u.gallery = [...(d.gallery||[]), {
-              id: genId(),
-              type: 'image',
-              url: data._scannedPreview,
-              name: data._fileName || f.name,
-              date: new Date().toLocaleDateString('en-AU')
-            }];
+            // Upload image to Storage
+            uploadToStorage(`dogProfiles/${dogId}/gallery_${Date.now()}.jpg`, data._scannedPreview)
+              .then(url => {
+                setDogs(prev => prev.map(dog => dog.id === dogId ? {
+                  ...dog, gallery: [...(dog.gallery||[]), {
+                    id: genId(), type: 'image', url,
+                    name: data._fileName || f.name,
+                    date: new Date().toLocaleDateString('en-AU')
+                  }]
+                } : dog));
+              }).catch(() => {});
           } else {
-            // PDF: save reference only (not full base64 - too large for Firestore)
-            u.documents = [...(d.documents||[]), {
-              id: genId(),
-              name: data._fileName || f.name,
-              docType: 'Breed Certificate',
-              date: new Date().toLocaleDateString('en-AU'),
-              url: '',
-              fileType: f.type,
-              note: 'Scanned document - re-upload to view'
-            }];
+            // Upload PDF to Storage
+            const ext = f.name.split('.').pop() || 'pdf';
+            uploadToStorage(`dogProfiles/${dogId}/docs_${Date.now()}.${ext}`, data._scannedPreview)
+              .then(url => {
+                setDogs(prev => prev.map(dog => dog.id === dogId ? {
+                  ...dog, documents: [...(dog.documents||[]), {
+                    id: genId(), name: data._fileName || f.name,
+                    docType: 'Breed Certificate',
+                    date: new Date().toLocaleDateString('en-AU'),
+                    url, fileType: f.type
+                  }]
+                } : dog));
+              }).catch(() => {});
           }
         }
         return u;
@@ -204,9 +207,39 @@ export default function DogProfile() {
   const addWorm = () => { if(!newWorm.name||!newWorm.date||!activeDog)return; updateDog("wormRecords",[...(activeDog.wormRecords||[]),{id:genId(),...newWorm}]); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
   const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
-  const handleAvatar = async (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f)return; const compressed=await compressImage(f,400,0.85); updateDog("avatar",compressed); };
-  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=async ev=>{ const rawUrl=ev.target?.result as string; const url=iv?rawUrl:await compressImage(f,800,0.7).catch(()=>rawUrl); const item:MediaItem={id:genId(),type:iv?"video":"image",url,name:f.name,date:new Date().toLocaleDateString("en-AU")}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); }; r.readAsDataURL(f); }); };
-  const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => { const f=e.target.files?.[0]; if(!f||!activeDog)return; const r=new FileReader(); r.onload=ev=>{ const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url:ev.target?.result as string,fileType:f.type}; setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d)); setNewDoc({name:"",docType:DOC_TYPES[0]}); }; r.readAsDataURL(f); };
+  const handleAvatar = async (e:React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f)return;
+    const compressed=await compressImage(f,400,0.85);
+    try {
+      const url = await uploadToStorage(`dogProfiles/${activeDogId}/avatar_${Date.now()}.jpg`, compressed);
+      updateDog("avatar", url);
+    } catch { updateDog("avatar", compressed); }
+  };
+  const handleGallery = (e:React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files||[]).forEach(f=>{ const r=new FileReader(); const iv=f.type.startsWith("video/"); r.onload=async ev=>{ 
+      const rawUrl=ev.target?.result as string; 
+      let url=iv?rawUrl:await compressImage(f,800,0.7).catch(()=>rawUrl);
+      try {
+        if(!iv) url = await uploadToStorage(`dogProfiles/${activeDogId}/gallery_${Date.now()}.jpg`, url);
+      } catch {}
+      const item:MediaItem={id:genId(),type:iv?"video":"image",url,name:f.name,date:new Date().toLocaleDateString("en-AU")}; 
+      setDogs(p=>p.map(d=>d.id===activeDogId?{...d,gallery:[...d.gallery,item]}:d)); 
+    }; r.readAsDataURL(f); }); };
+  const handleDoc = (e:React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f||!activeDog)return;
+    const r=new FileReader();
+    r.onload=async ev=>{
+      const dataUrl=ev.target?.result as string;
+      let url=dataUrl;
+      try {
+        const ext=f.name.split('.').pop()||'pdf';
+        url = await uploadToStorage(`dogProfiles/${activeDogId}/docs_${Date.now()}.${ext}`, dataUrl);
+      } catch {}
+      const item:DocItem={id:genId(),name:newDoc.name||f.name,docType:newDoc.docType,date:new Date().toLocaleDateString("en-AU"),url,fileType:f.type};
+      setDogs(p=>p.map(d=>d.id===activeDogId?{...d,documents:[...d.documents,item]}:d));
+      setNewDoc({name:"",docType:DOC_TYPES[0]});
+    };
+    r.readAsDataURL(f);
+  };
 
   const removeGallery = (id:string) => updateDog("gallery",activeDog!.gallery.filter(g=>g.id!==id));
   const removeDoc = (id:string) => updateDog("documents",activeDog!.documents.filter(d=>d.id!==id));
