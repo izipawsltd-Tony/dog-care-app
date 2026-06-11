@@ -102,7 +102,7 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
 {
   "name": "dog's name or call name",
   "breed": "breed name",
-  "dob": "date in DD-MM-YYYY format e.g. 22-05-2025",
+  "dob": "date in YYYY-MM-DD format",
   "gender": "Male or Female",
   "microchip": "microchip number",
   "colour": "coat colour",
@@ -117,7 +117,7 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
 "notes": "any other relevant notes"
 }
 
-CRITICAL: Use DD-MM-YYYY for ALL dates. Examples: 22/05/2025 → 22-05-2025, 6/8/2026 → 06-08-2026, Jun 12 2025 → 12-06-2025.`;
+Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024" convert to "2024-06-15".`;
 
       const body: any = {
         model: "claude-opus-4-5",
@@ -162,12 +162,8 @@ CRITICAL: Use DD-MM-YYYY for ALL dates. Examples: 22/05/2025 → 22-05-2025, 6/8
         const result: any = {};
         for (const k of Object.keys(obj)) {
           if (typeof obj[k] === 'string') {
-                        // Convert YYYY-MM-DD to DD-MM-YYYY if needed
-            const ymd = obj[k].match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            const dmy = obj[k].match(/^(\d{2})-(\d{2})-(\d{4})$/);
-            if (ymd) result[k] = `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
-            else if (dmy) result[k] = obj[k]; // already DD-MM-YYYY
-            else result[k] = obj[k];[k];
+            const m = obj[k].match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            result[k] = m ? `${m[3]}-${m[2]}-${m[1]}` : obj[k];
           } else if (Array.isArray(obj[k])) {
             result[k] = obj[k].map(convertDates);
           } else {
