@@ -117,11 +117,23 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
 "notes": "any other relevant notes"
 }
 
-Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024" convert to "2024-06-15".`;
+Important rules:
+- The document may be rotated or sideways — read all text carefully regardless of orientation
+- DOB (Date of Birth) is a separate field from vaccine dates — do NOT use a vaccine visit date as DOB
+- If PET'S NAME is blank or not written, return null for name — do NOT invent or guess a name
+- 2-digit years: 25 = 2025, 26 = 2026 (current year is 2026)
+- Convert ALL dates to DD-MM-YYYY format (e.g. "31/3/25" → "31-03-2025", "6/8/26" → "06-08-2026")
+- For vaccination cards:
+  * Each "TREATMENT DATE" row = one vaccine entry → its date goes in "date" field
+  * "NEXT TREATMENT DUE" on that same row = booster reminder → goes in "nextDate" field
+  * Do NOT use a next-due date as a treatment date
+  * Vaccine name = product sticker/label on that row (e.g. Protech C3, Protech C4, Duramune)
+  * If no product name visible for a row, use "Vaccination 1", "Vaccination 2", etc
+- Only include vaccine entries where a real treatment date exists (was actually given)`;
 
       const body: any = {
         model: "claude-opus-4-5",
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [{
           role: "user",
           content: [
