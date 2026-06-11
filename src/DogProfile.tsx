@@ -145,7 +145,7 @@ export default function DogProfile() {
         if (data.dob) {
           // Convert YYYY-MM-DD to DD/MM/YYYY
           const d = data.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-          u.dob = d ? `${d[3]}/${d[2]}/${d[1]}` : data.dob;
+          u.dob = d ? `${d[3]}-${d[2]}-${d[1]}` : data.dob;
         }
         if (data.gender) u.gender = data.gender;
         if (data.microchip) u.chipNumber = data.microchip;
@@ -170,11 +170,11 @@ export default function DogProfile() {
         if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
         if (data.ownerAddress) u.ownerAddress = data.ownerAddress;
         if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => {
-          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s||""); };
+          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
           return { id: genId(), name: v.name, date: toDD(v.date), nextDate: toDD(v.nextDate||"") };
         })];
         if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
-          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s||""); };
+          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
           return { id: genId(), name: w.name, date: toDD(w.date), nextDate: toDD(w.nextDate||"") };
         })];
         // Save scanned file to Documents or Gallery
@@ -186,7 +186,7 @@ export default function DogProfile() {
               ...dog, gallery: [...(dog.gallery||[]), {
                 id: genId(), type: 'image', url,
                 name: data._fileName || f.name,
-                date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'})
+                date: new Date().toLocaleDateString('en-AU').split('/').join('-').replace(/\//g,'-').replace(/\//g,'-')
               }]
             } : dog));
           };
@@ -195,7 +195,7 @@ export default function DogProfile() {
               ...dog, documents: [...(dog.documents||[]), {
                 id: genId(), name: data._fileName || f.name,
                 docType: 'Breed Certificate',
-                date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'}),
+                date: new Date().toLocaleDateString('en-AU').split('/').join('-').replace(/\//g,'-').replace(/\//g,'-'),
                 url, fileType: f.type
               }]
             } : dog));
@@ -266,7 +266,7 @@ export default function DogProfile() {
 
   const removeGallery = (id:string) => updateDog("gallery",activeDog!.gallery.filter(g=>g.id!==id));
   const removeDoc = (id:string) => updateDog("documents",activeDog!.documents.filter(d=>d.id!==id));
-  const age = (dob:string) => { if(!dob)return""; const m=Math.floor((Date.now()-new Date(dob).getTime())/(1000*60*60*24*30)); if(m<12)return`${m} months old`; return`${Math.floor(m/12)} yr ${m%12} mo`; };
+  const age = (dob:string) => { if(!dob)return""; let dateObj=new Date(dob); if(dob.includes("-")&&dob.split("-")[0].length===2){const[dd,mm,yyyy]=dob.split("-");dateObj=new Date(`${yyyy}-${mm}-${dd}`);} const m=Math.floor((Date.now()-dateObj.getTime())/(1000*60*60*24*30)); if(m<12)return`${m} months old`; return`${Math.floor(m/12)} yr ${m%12} mo`; };
   const filteredDogs = dogs.filter(d=>{ const ms=d.name.toLowerCase().includes(search.toLowerCase())||d.id.toLowerCase().includes(search.toLowerCase())||((d.callName||"").toLowerCase().includes(search.toLowerCase())); const mk=filterKennel==="All"||d.kennel===filterKennel; return ms&&mk; });
 
   const inp = (val:string,onChange:(v:string)=>void,placeholder:string,type="text") => (
@@ -451,7 +451,7 @@ export default function DogProfile() {
                 <div>{lbl("Breed")}<select value={activeDog.breed} onChange={e=>updateDog("breed",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select breed --</option>{BREED_LIST.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
                 <div>{lbl("Coat Colour")}<select value={activeDog.color} onChange={e=>updateDog("color",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select colour --</option>{COLOUR_LIST.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 <div>{lbl("Gender")}<select value={activeDog.gender} onChange={e=>updateDog("gender",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}><option value="">-- Select --</option><option>Male</option><option>Female</option></select></div>
-                <div>{lbl("Date of Birth")}{inp(activeDog.dob,v=>updateDog("dob",v),"","date")}</div>
+                <div>{lbl("Date of Birth")}{inp(activeDog.dob,v=>updateDog("dob",v),"e.g. 15-06-2024")}</div>
                 <div>{lbl("Weight (kg)")}{inp(activeDog.weight,v=>updateDog("weight",v),"e.g. 25.5")}</div>
                 <div>{lbl("Microchip Number")}{inp(activeDog.chipNumber,v=>updateDog("chipNumber",v),"900123456789")}</div>
                 <div>{lbl("Registration Number")}{inp(activeDog.regNumber,v=>updateDog("regNumber",v),"ANKC-2024-001")}</div>

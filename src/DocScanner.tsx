@@ -107,8 +107,8 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
   "ownerPhone": "owner phone",
   "ownerEmail": "owner email",
   "ownerAddress": "owner address",
-  "vaccines": [{"name": "vaccine name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
-  "worming": [{"name": "product name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
+  "vaccines": [{"name": "vaccine name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
+  "worming": [{"name": "product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
   "registrationNumber": "Dogs Australia/ANKC/kennel club registration number. Format: org name + number, e.g. Dogs Australia 2100582145",
 "notes": "any other relevant notes"
 }
