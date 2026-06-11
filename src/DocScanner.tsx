@@ -322,6 +322,13 @@ Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024
             )}
 
             {/* Apply button */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:12,color:"#666",marginBottom:6,fontWeight:500}}>💾 Save scanned file to:</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setSaveLocation("docs")} style={{flex:1,padding:"7px",borderRadius:8,fontSize:12,cursor:"pointer",border:saveLocation==="docs"?"1.5px solid #534AB7":"1px solid #ddd",background:saveLocation==="docs"?"#EEEDFE":"#fff",color:saveLocation==="docs"?"#3C3489":"#666"}}>📁 Documents</button>
+                <button onClick={()=>setSaveLocation("gallery")} style={{flex:1,padding:"7px",borderRadius:8,fontSize:12,cursor:"pointer",border:saveLocation==="gallery"?"1.5px solid #534AB7":"1px solid #ddd",background:saveLocation==="gallery"?"#EEEDFE":"#fff",color:saveLocation==="gallery"?"#3C3489":"#666"}}>🖼️ Gallery</button>
+              </div>
+            </div>
             <button
               onClick={applyData}
               disabled={applying}
