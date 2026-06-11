@@ -129,12 +129,15 @@ export default function DogProfile() {
 
   const handleExtracted = (data: any) => {
     if (!activeDogId) return;
+    const docType = data._docType || "other";
     setDogs(prev => {
       const updated = prev.map(d => {
         if (d.id !== activeDogId) return d;
         const u: any = { ...d };
-        // Only set name if profile name is empty
-        if (data.name && !d.name) u.name = data.name;
+        // Basic info: only for pedigree/registration docs
+        if (['pedigree','registration','other'].includes(docType)) {
+          if (data.name && !d.name) u.name = data.name;
+        }
         if (data.breed && !d.breed) {
           // Match to closest breed in list
           const breedLower = data.breed.toLowerCase();
@@ -170,11 +173,11 @@ export default function DogProfile() {
         if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
         if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
         if (data.ownerAddress) u.ownerAddress = data.ownerAddress;
-        if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => {
+        if (['vaccination','health_check','other'].includes(docType) && data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => {
           const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
           return { id: genId(), name: v.name, date: toDD(v.date), nextDate: toDD(v.nextDate||"") };
         })];
-        if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
+        if (['vaccination','health_check','other'].includes(docType) && data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
           const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
           return { id: genId(), name: w.name, date: toDD(w.date), nextDate: toDD(w.nextDate||"") };
         })];
