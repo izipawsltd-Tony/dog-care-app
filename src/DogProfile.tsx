@@ -142,24 +142,41 @@ export default function DogProfile() {
           );
           u.breed = matchedBreed || (BREED_LIST.includes(data.breed) ? data.breed : "Other");
         }
-        if (data.dob) u.dob = data.dob;
+        if (data.dob) {
+          // Convert YYYY-MM-DD to DD/MM/YYYY
+          const d = data.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          u.dob = d ? `${d[3]}/${d[2]}/${d[1]}` : data.dob;
+        }
         if (data.gender) u.gender = data.gender;
         if (data.microchip) u.chipNumber = data.microchip;
         if (data.registrationNumber) u.regNumber = data.registrationNumber;
         if (data.colour) {
-          // Match to closest colour in list (Dog interface uses 'color')
-          const colourLower = data.colour.toLowerCase();
-          const matchedColour = COLOUR_LIST.find(c => 
-            colourLower.includes(c.toLowerCase()) || c.toLowerCase().includes(colourLower.split(' ')[0])
-          );
-          u.color = matchedColour || (COLOUR_LIST.includes(data.colour) ? data.colour : "Other");
+          const colourLower = data.colour.toLowerCase().trim();
+          // First try exact match
+          let matchedColour = COLOUR_LIST.find(c => c.toLowerCase() === colourLower);
+          // Then try full includes match (longer strings first to prefer "Black & Tan" over "Black")
+          if (!matchedColour) {
+            const sorted = [...COLOUR_LIST].sort((a,b) => b.length - a.length);
+            matchedColour = sorted.find(c => colourLower.includes(c.toLowerCase()));
+          }
+          // Then try if list item includes extracted colour
+          if (!matchedColour) {
+            matchedColour = COLOUR_LIST.find(c => c.toLowerCase().includes(colourLower));
+          }
+          u.color = matchedColour || "Other";
         }
         if (data.ownerName) u.ownerName = data.ownerName;
         if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
         if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
         if (data.ownerAddress) u.ownerAddress = data.ownerAddress;
-        if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => ({ id: genId(), name: v.name, date: v.date, nextDate: v.nextDate||"" }))];
-        if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => ({ id: genId(), name: w.name, date: w.date, nextDate: w.nextDate||"" }))];
+        if (data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => {
+          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s||""); };
+          return { id: genId(), name: v.name, date: toDD(v.date), nextDate: toDD(v.nextDate||"") };
+        })];
+        if (data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
+          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s||""); };
+          return { id: genId(), name: w.name, date: toDD(w.date), nextDate: toDD(w.nextDate||"") };
+        })];
         // Save scanned file to Documents or Gallery
         if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;
@@ -169,7 +186,7 @@ export default function DogProfile() {
               ...dog, gallery: [...(dog.gallery||[]), {
                 id: genId(), type: 'image', url,
                 name: data._fileName || f.name,
-                date: new Date().toLocaleDateString('en-AU')
+                date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'})
               }]
             } : dog));
           };
@@ -178,7 +195,7 @@ export default function DogProfile() {
               ...dog, documents: [...(dog.documents||[]), {
                 id: genId(), name: data._fileName || f.name,
                 docType: 'Breed Certificate',
-                date: new Date().toLocaleDateString('en-AU'),
+                date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'}),
                 url, fileType: f.type
               }]
             } : dog));
