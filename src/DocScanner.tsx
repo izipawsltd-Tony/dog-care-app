@@ -102,12 +102,19 @@ Return this exact JSON structure (null for missing fields, [] for missing arrays
 }
 
 CRITICAL rules:
-- 2-digit years: 25=2025, 26=2026. Format ALL dates as DD-MM-YYYY.
+- 2-digit years: 24=2024, 25=2025, 26=2026, 27=2027 (i.e. 20YY). Format ALL dates as DD-MM-YYYY, zero-padding single-digit days/months (e.g. "6/3/26" -> "06-03-2026", "20/3/24" -> "20-03-2024").
 - DOB is at the top of the card - never use a treatment date as DOB
-- Vaccination/worming rows usually have TWO date columns: the "DATE GIVEN"/"DATE" column (when the treatment was administered) and the "NEXT DUE"/"DUE DATE"/"NEXT TREATMENT DUE" column (when the next dose is due). The DATE GIVEN column is the earlier one and is normally positioned to the left of the NEXT DUE column - do not mix them up.
-- Map DATE GIVEN -> "date" and NEXT DUE -> "nextDate". The "nextDate" should always be chronologically AFTER "date" - if your reading produces a nextDate before date, you have likely swapped the columns, so re-check which column is which.
+- Vaccination/worming rows usually have TWO date columns: the "DATE GIVEN"/"DATE" column (when the treatment was administered) and the "NEXT DUE"/"DUE DATE"/"RETREATMENT DUE"/"NEXT TREATMENT DUE" column (when the next dose is due). The DATE GIVEN column is the earlier one and is normally positioned to the left of the NEXT DUE column - do not mix them up.
+- Map DATE GIVEN -> "date" and NEXT DUE/RETREATMENT DUE on the SAME ROW -> "nextDate". Each row is independent: the DUE date on row N is the next-due reminder for row N's treatment ONLY, and is NOT the "date" for row N+1.
+- The "nextDate" should normally be chronologically AFTER "date" - if your reading produces a nextDate before date, you have likely swapped the columns, so re-check which column is which.
 - Only include vaccine entry if DATE was actually written in (not blank)
+- If the DUE/RETREATMENT DUE field on a row is blank, empty, or illegible, set "nextDate" to null - do NOT guess or invent a due date.
 - Do NOT invent dates for blank rows
+- Example of correct row-by-row mapping from a real vaccination card:
+  Row 1: DATE 20/3/24, DUE 16/4/24 -> {"date":"20-03-2024","nextDate":"16-04-2024"}
+  Row 2: DATE 10/5/24, DUE 31/5/24 -> {"date":"10-05-2024","nextDate":"31-05-2024"}
+  Row 3: DATE 11/2/25, DUE blank -> {"date":"11-02-2025","nextDate":null}
+  Row 4: DATE 6/3/26, DUE 6/5/27 -> {"date":"06-03-2026","nextDate":"06-05-2027"}
 - Read rows top-to-bottom: 1ST TREATMENT then 2ND TREATMENT then 3RD TREATMENT
 - Vaccine name = product sticker on that row
 - If this document is a Hip/Elbow Dysplasia scoring certificate (e.g. BVA/KC, OFA, PennHIP), fill in "hipScore" and/or "elbowGrade" with the left/right values, total (hip only), certificate number, and date of the scoring. Otherwise return null for both.
