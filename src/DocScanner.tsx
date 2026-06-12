@@ -299,12 +299,27 @@ Important rules:
 
 
             {/* Basic info */}
-            {Object.entries(result).filter(([k]) => !["vaccines", "worming", "notes"].includes(k) && result[k as keyof ExtractedData]).length > 0 && (
-              <div style={{ background: "#f8f8f8", borderRadius: 10, padding: 12 }}>
+            <div style={{ background: "#f8f8f8", borderRadius: 10, padding: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#534AB7", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>📋 Basic Information</div>
+                {/* Warning if dog name is missing */}
+                {!result.name && (
+                  <div style={{ background: "#FFF8E1", border: "1px solid #FFC107", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "#7A5800", display: "flex", alignItems: "center", gap: 6 }}>
+                    ⚠️ <span><b>Dog name not found in document.</b> Please type the dog's name below before applying.</span>
+                  </div>
+                )}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {/* Always show Dog Name field first */}
+                  <div>
+                    <div style={{ fontSize: 11, color: result.name ? "#888" : "#C8860A", marginBottom: 3, fontWeight: result.name ? 400 : 600 }}>Dog Name {!result.name && "*"}</div>
+                    <input
+                      value={result.name || ""}
+                      onChange={e => setResult(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                      placeholder="Enter dog name manually"
+                      style={{ ...IS, border: result.name ? "1px solid #ddd" : "1.5px solid #FFC107", background: result.name ? "#fafafa" : "#FFFDE7" }}
+                    />
+                  </div>
                   {Object.entries(result)
-                    .filter(([k]) => !["vaccines", "worming", "notes"].includes(k) && result[k as keyof ExtractedData])
+                    .filter(([k]) => !(["vaccines", "worming", "notes", "name"] as string[]).includes(k) && result[k as keyof ExtractedData])
                     .map(([k, v]) => (
                       <div key={k}>
                         <div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>{FIELD_LABELS[k] || k}</div>
@@ -318,7 +333,6 @@ Important rules:
                     ))}
                 </div>
               </div>
-            )}
 
             {/* Vaccines */}
             {result.vaccines && result.vaccines.length > 0 && (
