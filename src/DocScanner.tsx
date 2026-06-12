@@ -36,6 +36,9 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
   const [result, setResult] = useState<ExtractedData | null>(null);
   const [error, setError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [saveLocation, setSaveLocation] = useState<"docs"|"gallery">("docs");
+  const [docType, setDocType] = useState("auto");
+  const [step, setStep] = useState<"upload"|"classify"|"review">("upload");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +47,8 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
     setFile(f);
     setResult(null);
     setError("");
+    setStep("upload");
+    setDocType("auto");
     if (f.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = ev => setPreview(ev.target?.result as string);
@@ -129,9 +134,6 @@ CRITICAL rules:
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed: ExtractedData = JSON.parse(clean);
 
-      // Always clear name - user must verify and type manually
-      delete parsed.name;
-
       // Filter out null values
       Object.keys(parsed).forEach(k => {
         const key = k as keyof ExtractedData;
@@ -164,6 +166,7 @@ CRITICAL rules:
       }
 
       setResult(parsed);
+      setStep("classify");
     } catch (e) {
       console.error(e);
       setError("Could not read document. Please try a clearer image or PDF.");
@@ -174,7 +177,14 @@ CRITICAL rules:
   const applyData = () => {
     if (!result) return;
     setApplying(true);
-    onExtracted(result);
+    const finalResult = { ...result };
+    // Only clear the AI-read name for vaccination cards - user must verify and type manually.
+    // Pedigree/registration certs are the authoritative source for the dog's name.
+    if (docType === 'vaccination') {
+      delete finalResult.name;
+    }
+    const resultWithFile = { ...finalResult, _scannedFile: file, _scannedPreview: preview, _fileName: file?.name || "Scanned Document", _saveLocation: saveLocation, _docType: docType };
+    onExtracted(resultWithFile);
     setTimeout(() => { setApplying(false); onClose(); }, 500);
   };
 
@@ -242,11 +252,29 @@ CRITICAL rules:
           </div>
         )}
 
+        {/* Classify step */}
+        {result && step === "classify" && (
+          <div style={{background:"#f0f7ff",borderRadius:10,padding:14}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#534AB7",marginBottom:10}}>📄 What type of document is this?</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+              {([["pedigree","📜 Pedigree"],["vaccination","💉 Vaccination"],["health_check","🩺 Health Check"],["registration","📋 Registration"],["other","📄 Other"]] as [string,string][]).map(([t,label]) => (
+                <button key={t} onClick={()=>setDocType(t)} style={{padding:"8px 6px",borderRadius:8,fontSize:12,cursor:"pointer",border:docType===t?"2px solid #534AB7":"1px solid #ddd",background:docType===t?"#EEEDFE":"#fff",color:docType===t?"#3C3489":"#555",fontWeight:docType===t?600:400}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setStep("review")} disabled={docType==="auto"} style={{width:"100%",padding:"10px",borderRadius:10,border:"none",background:docType==="auto"?"#aaa":"#534AB7",color:"#fff",fontSize:13,fontWeight:600,cursor:docType==="auto"?"not-allowed":"pointer"}}>
+              Continue to Review →
+            </button>
+          </div>
+        )}
+
         {/* Results */}
-        {result && (
+        {result && step === "review" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#0F6E56", fontWeight: 500 }}>
-              ✅ Tìm thấy thông tin! Kiểm tra và chỉnh sửa trước khi áp dụng.
+            <div style={{ background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#0F6E56", fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>✅ Tìm thấy thông tin! Kiểm tra và chỉnh sửa trước khi áp dụng.</span>
+              <button onClick={()=>setStep("classify")} style={{fontSize:11,color:"#888",background:"none",border:"none",cursor:"pointer"}}>← Change type</button>
             </div>
 
             {/* Basic info */}
@@ -327,6 +355,15 @@ CRITICAL rules:
                 <textarea value={result.notes} onChange={e => setResult(p => p ? { ...p, notes: e.target.value } : p)} rows={2} style={{ ...IS, resize: "vertical", lineHeight: 1.5 }} />
               </div>
             )}
+
+            {/* Save location */}
+            <div>
+              <div style={{fontSize:12,color:"#666",marginBottom:6,fontWeight:500}}>💾 Save scanned file to:</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setSaveLocation("docs")} style={{flex:1,padding:"7px",borderRadius:8,fontSize:12,cursor:"pointer",border:saveLocation==="docs"?"1.5px solid #534AB7":"1px solid #ddd",background:saveLocation==="docs"?"#EEEDFE":"#fff",color:saveLocation==="docs"?"#3C3489":"#666"}}>📁 Documents</button>
+                <button onClick={()=>setSaveLocation("gallery")} style={{flex:1,padding:"7px",borderRadius:8,fontSize:12,cursor:"pointer",border:saveLocation==="gallery"?"1.5px solid #534AB7":"1px solid #ddd",background:saveLocation==="gallery"?"#EEEDFE":"#fff",color:saveLocation==="gallery"?"#3C3489":"#666"}}>🖼️ Gallery</button>
+              </div>
+            </div>
 
             {/* Apply button */}
             <button
