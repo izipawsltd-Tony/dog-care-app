@@ -219,6 +219,58 @@ export default function DogProfile() {
         if (['vaccination','health_check','other'].includes(docType) && data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
           return { id: genId(), name: w.name, date: w.date||"", nextDate: w.nextDate||"" };
         })];
+
+        // Hip/Elbow scores: apply from dedicated fields, or fall back to parsing free-text notes
+        let hipScore = data.hipScore;
+        let elbowGrade = data.elbowGrade;
+        if ((!hipScore || !elbowGrade) && typeof data.notes === 'string' && data.notes) {
+          const text = data.notes;
+          if (!hipScore) {
+            const hipMatch = text.match(/hip[^a-z0-9]{0,15}(?:score|score[s]?)?[^0-9]{0,20}(?:left|l)[^0-9]{0,5}(\d+)[^0-9]{1,15}(?:right|r)[^0-9]{0,5}(\d+)(?:[^0-9]{1,15}(?:total)[^0-9]{0,5}(\d+))?/i);
+            if (hipMatch) {
+              hipScore = {
+                left: hipMatch[1],
+                right: hipMatch[2],
+                total: hipMatch[3] || String(parseInt(hipMatch[1],10) + parseInt(hipMatch[2],10)),
+              };
+            }
+          }
+          if (!elbowGrade) {
+            const elbowMatch = text.match(/elbow[^a-z0-9]{0,15}(?:grade)?[^0-9]{0,20}(?:left|l)[^0-9]{0,5}(\d+)[^0-9]{1,15}(?:right|r)[^0-9]{0,5}(\d+)/i);
+            if (elbowMatch) {
+              elbowGrade = { left: elbowMatch[1], right: elbowMatch[2] };
+            }
+          }
+        }
+        if (hipScore || elbowGrade) {
+          const ht = { ...(u.healthTesting || emptyHealthTesting()) };
+          if (hipScore) {
+            ht.hipScore = {
+              date: hipScore.date || ht.hipScore.date || "",
+              left: hipScore.left || ht.hipScore.left || "",
+              right: hipScore.right || ht.hipScore.right || "",
+              total: hipScore.total || ht.hipScore.total || "",
+              certNumber: hipScore.certNumber || ht.hipScore.certNumber || "",
+              docId: ht.hipScore.docId || "",
+            };
+          }
+          if (elbowGrade) {
+            ht.elbowGrade = {
+              date: elbowGrade.date || ht.elbowGrade.date || "",
+              left: elbowGrade.left || ht.elbowGrade.left || "",
+              right: elbowGrade.right || ht.elbowGrade.right || "",
+              certNumber: elbowGrade.certNumber || ht.elbowGrade.certNumber || "",
+              docId: ht.elbowGrade.docId || "",
+            };
+          }
+          u.healthTesting = ht;
+        }
+
+        // Save any extracted notes to the dog's health notes
+        if (typeof data.notes === 'string' && data.notes.trim()) {
+          const noteEntry = data.notes.trim();
+          u.healthNotes = u.healthNotes ? `${u.healthNotes}\n\n${noteEntry}` : noteEntry;
+        }
         // Save scanned file to Documents or Gallery
         if (data._scannedFile && data._scannedPreview) {
           const f = data._scannedFile as File;

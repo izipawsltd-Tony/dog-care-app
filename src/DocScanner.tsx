@@ -14,6 +14,8 @@ interface ExtractedData {
   ownerAddress?: string;
   vaccines?: { name: string; date: string; nextDate?: string; dateUncertain?: boolean; nextDateUncertain?: boolean }[];
   worming?: { name: string; date: string; nextDate?: string; dateUncertain?: boolean; nextDateUncertain?: boolean }[];
+  hipScore?: { left?: string; right?: string; total?: string; certNumber?: string; date?: string };
+  elbowGrade?: { left?: string; right?: string; certNumber?: string; date?: string };
   notes?: string;
 }
 
@@ -93,6 +95,8 @@ Return this exact JSON structure (null for missing fields, [] for missing arrays
   "ownerAddress": "owner address",
   "vaccines": [{"name": "vaccine product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
   "worming": [{"name": "product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
+  "hipScore": {"left": "left hip score number", "right": "right hip score number", "total": "total hip score (left+right)", "certNumber": "certificate number", "date": "DD-MM-YYYY"},
+  "elbowGrade": {"left": "left elbow grade", "right": "right elbow grade", "certNumber": "certificate number", "date": "DD-MM-YYYY"},
   "registrationNumber": "registration number if present",
   "notes": "any other relevant notes"
 }
@@ -100,12 +104,13 @@ Return this exact JSON structure (null for missing fields, [] for missing arrays
 CRITICAL rules:
 - 2-digit years: 25=2025, 26=2026. Format ALL dates as DD-MM-YYYY.
 - DOB is at the top of the card - never use a treatment date as DOB
-- For each TREATMENT row: DATE = date field, NEXT TREATMENT DUE = nextDate field
+- Vaccination/worming rows usually have TWO date columns: the "DATE GIVEN"/"DATE" column (when the treatment was administered) and the "NEXT DUE"/"DUE DATE"/"NEXT TREATMENT DUE" column (when the next dose is due). The DATE GIVEN column is the earlier one and is normally positioned to the left of the NEXT DUE column - do not mix them up.
+- Map DATE GIVEN -> "date" and NEXT DUE -> "nextDate". The "nextDate" should always be chronologically AFTER "date" - if your reading produces a nextDate before date, you have likely swapped the columns, so re-check which column is which.
 - Only include vaccine entry if DATE was actually written in (not blank)
 - Do NOT invent dates for blank rows
 - Read rows top-to-bottom: 1ST TREATMENT then 2ND TREATMENT then 3RD TREATMENT
 - Vaccine name = product sticker on that row
-- NEXT TREATMENT DUE is always after the treatment date
+- If this document is a Hip/Elbow Dysplasia scoring certificate (e.g. BVA/KC, OFA, PennHIP), fill in "hipScore" and/or "elbowGrade" with the left/right values, total (hip only), certificate number, and date of the scoring. Otherwise return null for both.
 - CONFIDENCE FLAG: If a vaccine/worming date or next due date is handwritten and hard to read clearly, prefix the value with "?" (e.g. "?15-03-25"). Only do this when genuinely unclear - do not flag clearly printed or confidently-read dates.`;
 
       const body: any = {
@@ -173,20 +178,38 @@ CRITICAL rules:
       applyUncertainFlags(parsed.vaccines);
       applyUncertainFlags(parsed.worming);
 
+      // Flag dates that are out of range (month > 12, day > 31, etc.) as uncertain
+      // rather than silently dropping them - let the user fix them up in the UI.
+      const isSuspiciousDate = (d?: string): boolean => {
+        if (!d) return false;
+        const parts = d.split('-');
+        if (parts.length !== 3) return true;
+        const [dayStr, monthStr, yearStr] = parts;
+        const day = parseInt(dayStr, 10);
+        const month = parseInt(monthStr, 10);
+        if (isNaN(day) || isNaN(month) || isNaN(parseInt(yearStr, 10))) return true;
+        if (month < 1 || month > 12) return true;
+        if (day < 1 || day > 31) return true;
+        return false;
+      };
+
       if (parsed.vaccines) {
-        parsed.vaccines = parsed.vaccines.filter((v) => {
-          if (!v.date) return false;
-          const parts = v.date.split('-');
-          const month = parseInt(parts[1]);
-          if (month < 1 || month > 12) return false; // invalid month
-          return true;
-        }).map((v) => {
+        parsed.vaccines = parsed.vaccines.filter((v) => !!v.date).map((v) => {
+          if (isSuspiciousDate(v.date)) v.dateUncertain = true;
+          if (v.nextDate && isSuspiciousDate(v.nextDate)) v.nextDateUncertain = true;
           // Clear nextDate if it's before or same as date
-          if (v.nextDate && v.date && toISO(v.nextDate) <= toISO(v.date)) {
+          if (v.nextDate && v.date && !isSuspiciousDate(v.date) && !isSuspiciousDate(v.nextDate) && toISO(v.nextDate) <= toISO(v.date)) {
             v.nextDate = undefined;
             v.nextDateUncertain = undefined;
           }
           return v;
+        });
+      }
+      if (parsed.worming) {
+        parsed.worming = parsed.worming.filter((w) => !!w.date).map((w) => {
+          if (isSuspiciousDate(w.date)) w.dateUncertain = true;
+          if (w.nextDate && isSuspiciousDate(w.nextDate)) w.nextDateUncertain = true;
+          return w;
         });
       }
 
@@ -295,7 +318,7 @@ CRITICAL rules:
           <div style={{background:"#f0f7ff",borderRadius:10,padding:14}}>
             <div style={{fontSize:13,fontWeight:600,color:"#534AB7",marginBottom:10}}>📄 What type of document is this?</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
-              {([["pedigree","📜 Pedigree"],["vaccination","💉 Vaccination"],["health_check","🩺 Health Check"],["registration","📋 Registration"],["other","📄 Other"]] as [string,string][]).map(([t,label]) => (
+              {([["pedigree","📜 Pedigree"],["vaccination","💉 Vaccination"],["health_check","🩺 Health Check"],["registration","📋 Registration"],["hip_elbow","🦴 Hip/Elbow Score"],["other","📄 Other"]] as [string,string][]).map(([t,label]) => (
                 <button key={t} onClick={()=>setDocType(t)} style={{padding:"8px 6px",borderRadius:8,fontSize:12,cursor:"pointer",border:docType===t?"2px solid #534AB7":"1px solid #ddd",background:docType===t?"#EEEDFE":"#fff",color:docType===t?"#3C3489":"#555",fontWeight:docType===t?600:400}}>
                   {label}
                 </button>
