@@ -22,7 +22,26 @@ const WORMING_SCHEDULE: Record<string,{intervalDays:number;label:string}> = {"Mi
 const getMatingWindow = (b:string) => BREED_MATING_WINDOW[b]||BREED_MATING_WINDOW["default"];
 const getBreedCycle = (b:string) => BREED_CYCLE[b]||BREED_CYCLE["default"];
 const addDays = (d:string,n:number) => { if(!d)return""; const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
-const formatDate = (d:string) => { if(!d)return""; const [y,m,day]=d.split("-"); return `${day}-${m}-${y}`; };
+const parseToISO = (d:string) => {
+  if(!d) return "";
+  const parts = d.split("-");
+  if(parts.length !== 3) return d;
+  if(parts[0].length === 4) return d; // already YYYY-MM-DD
+  return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY → YYYY-MM-DD for comparison
+};
+const formatDate = (d:string) => {
+  if(!d) return "";
+  const parts = d.split("-");
+  if(parts.length !== 3) return d;
+  // Detect format: if first part is 4 digits = YYYY-MM-DD, else DD-MM-YYYY
+  if(parts[0].length === 4) {
+    // YYYY-MM-DD → DD-MM-YYYY
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  } else {
+    // Already DD-MM-YYYY → display as-is
+    return d;
+  }
+};
 const formatDateRange = (a:string,b:string) => { if(!a||!b)return""; return `${formatDate(a)} – ${formatDate(b)}`; };
 const daysUntil = (d:string) => { if(!d)return null; return Math.ceil((new Date(d).getTime()-new Date().setHours(0,0,0,0))/(1000*60*60*24)); };
 
@@ -134,50 +153,55 @@ export default function DogProfile() {
       const updated = prev.map(d => {
         if (d.id !== activeDogId) return d;
         const u: any = { ...d };
-        // Basic info: apply from any doc type, always overwrite
-        if (data.name) u.name = data.name;
-        if (data.breed) {
-          // Match to closest breed in list
-          const breedLower = data.breed.toLowerCase();
-          const matchedBreed = BREED_LIST.find(b => 
-            breedLower.includes(b.toLowerCase()) || b.toLowerCase().includes(breedLower.split(' ')[0])
-          );
-          u.breed = matchedBreed || (BREED_LIST.includes(data.breed) ? data.breed : "Other");
+        // Basic info: only apply for pedigree/registration docs
+        // vaccination/health docs must NOT overwrite existing profile data
+        const isInfoDoc = ['pedigree', 'registration'].includes(docType);
+        const isVaccineDoc = ['vaccination', 'health_check'].includes(docType);
+
+        if (isInfoDoc || (!isVaccineDoc && data.name)) {
+          if (data.name) u.name = data.name;
         }
-        if (data.dob) {
-          // Convert YYYY-MM-DD to DD/MM/YYYY
-          const d = data.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-          u.dob = d ? `${d[3]}-${d[2]}-${d[1]}` : data.dob;
+        if (isInfoDoc || (!isVaccineDoc && data.breed)) {
+          if (data.breed) {
+            const breedLower = data.breed.toLowerCase();
+            const matchedBreed = BREED_LIST.find(b =>
+              breedLower.includes(b.toLowerCase()) || b.toLowerCase().includes(breedLower.split(' ')[0])
+            );
+            u.breed = matchedBreed || (BREED_LIST.includes(data.breed) ? data.breed : "Other");
+          }
         }
-        if (data.gender) u.gender = data.gender;
+        if (isInfoDoc || (!isVaccineDoc && data.dob)) {
+          if (data.dob) {
+            const d = data.dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            u.dob = d ? `${d[3]}-${d[2]}-${d[1]}` : data.dob;
+          }
+        }
+        if (isInfoDoc && data.gender) u.gender = data.gender;
         if (data.microchip) u.chipNumber = data.microchip;
         if (data.registrationNumber) u.regNumber = data.registrationNumber;
-        if (data.colour) {
-          const colourLower = data.colour.toLowerCase().trim();
-          // First try exact match
-          let matchedColour = COLOUR_LIST.find(c => c.toLowerCase() === colourLower);
-          // Then try full includes match (longer strings first to prefer "Black & Tan" over "Black")
-          if (!matchedColour) {
-            const sorted = [...COLOUR_LIST].sort((a,b) => b.length - a.length);
-            matchedColour = sorted.find(c => colourLower.includes(c.toLowerCase()));
+        if (isInfoDoc || (!isVaccineDoc && data.colour)) {
+          if (data.colour) {
+            const colourLower = data.colour.toLowerCase().trim();
+            let matchedColour = COLOUR_LIST.find(c => c.toLowerCase() === colourLower);
+            if (!matchedColour) {
+              const sorted = [...COLOUR_LIST].sort((a,b) => b.length - a.length);
+              matchedColour = sorted.find(c => colourLower.includes(c.toLowerCase()));
+            }
+            if (!matchedColour) {
+              matchedColour = COLOUR_LIST.find(c => c.toLowerCase().includes(colourLower));
+            }
+            u.color = matchedColour || "Other";
           }
-          // Then try if list item includes extracted colour
-          if (!matchedColour) {
-            matchedColour = COLOUR_LIST.find(c => c.toLowerCase().includes(colourLower));
-          }
-          u.color = matchedColour || "Other";
         }
-        if (data.ownerName) u.ownerName = data.ownerName;
-        if (data.ownerPhone) u.ownerPhone = data.ownerPhone;
-        if (data.ownerEmail) u.ownerEmail = data.ownerEmail;
-        if (data.ownerAddress) u.ownerAddress = data.ownerAddress;
+        if (!isVaccineDoc && data.ownerName) u.ownerName = data.ownerName;
+        if (!isVaccineDoc && data.ownerPhone) u.ownerPhone = data.ownerPhone;
+        if (!isVaccineDoc && data.ownerEmail) u.ownerEmail = data.ownerEmail;
+        if (!isVaccineDoc && data.ownerAddress) u.ownerAddress = data.ownerAddress;
         if (['vaccination','health_check','other'].includes(docType) && data.vaccines?.length) u.vaccines = [...(d.vaccines||[]), ...data.vaccines.map((v: any) => {
-          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
-          return { id: genId(), name: v.name, date: toDD(v.date), nextDate: toDD(v.nextDate||"") };
+          return { id: genId(), name: v.name, date: v.date||"", nextDate: v.nextDate||"" };
         })];
         if (['vaccination','health_check','other'].includes(docType) && data.worming?.length) u.wormRecords = [...(d.wormRecords||[]), ...data.worming.map((w: any) => {
-          const toDD = (s: string) => { const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (s||""); };
-          return { id: genId(), name: w.name, date: toDD(w.date), nextDate: toDD(w.nextDate||"") };
+          return { id: genId(), name: w.name, date: w.date||"", nextDate: w.nextDate||"" };
         })];
         // Save scanned file to Documents or Gallery
         if (data._scannedFile && data._scannedPreview) {
@@ -295,7 +319,7 @@ export default function DogProfile() {
     const dl=daysUntil(v.nextDate);
     if(dl===null||dl>vaccineReminder.days) return false;
     if(v.completed) return false;
-    const hasNewer=activeDog.vaccines.some(v2=>v2.name===v.name&&v2.date>v.date);
+    const hasNewer=activeDog.vaccines.some(v2=>v2.name===v.name&&parseToISO(v2.date)>parseToISO(v.date));
     return !hasNewer;
   }).map(v=>({name:v.name,dueDate:v.nextDate,daysLeft:daysUntil(v.nextDate)!})):[];
 
@@ -483,7 +507,7 @@ export default function DogProfile() {
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
                 {activeDog.vaccines.map((v,i)=>{
                   const dl=daysUntil(v.nextDate); const isOD=dl!==null&&dl<0; const isSoon=dl!==null&&!isOD&&dl<=30;
-                  const hasNewer=activeDog.vaccines.some((v2,j)=>j!==i&&v2.name===v.name&&v2.date>v.date);
+                  const hasNewer=activeDog.vaccines.some((v2,j)=>j!==i&&v2.name===v.name&&parseToISO(v2.date)>parseToISO(v.date));
                   const showOverdue=isOD&&!hasNewer&&!v.completed;
                   if(editVaccineIdx===i) return(
                     <div key={i} style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
