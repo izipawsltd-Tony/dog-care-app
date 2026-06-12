@@ -12,8 +12,8 @@ interface ExtractedData {
   ownerPhone?: string;
   ownerEmail?: string;
   ownerAddress?: string;
-  vaccines?: { name: string; date: string; nextDate?: string }[];
-  worming?: { name: string; date: string; nextDate?: string }[];
+  vaccines?: { name: string; date: string; nextDate?: string; dateUncertain?: boolean; nextDateUncertain?: boolean }[];
+  worming?: { name: string; date: string; nextDate?: string; dateUncertain?: boolean; nextDateUncertain?: boolean }[];
   notes?: string;
 }
 
@@ -105,7 +105,8 @@ CRITICAL rules:
 - Do NOT invent dates for blank rows
 - Read rows top-to-bottom: 1ST TREATMENT then 2ND TREATMENT then 3RD TREATMENT
 - Vaccine name = product sticker on that row
-- NEXT TREATMENT DUE is always after the treatment date`;
+- NEXT TREATMENT DUE is always after the treatment date
+- CONFIDENCE FLAG: If a vaccine/worming date or next due date is handwritten and hard to read clearly, prefix the value with "?" (e.g. "?15-03-25"). Only do this when genuinely unclear - do not flag clearly printed or confidently-read dates.`;
 
       const body: any = {
         model: "claude-opus-4-5",
@@ -149,6 +150,29 @@ CRITICAL rules:
         if (p[0].length === 4) return d;
         return p[2] + '-' + p[1] + '-' + p[0];
       };
+
+      // Strip the AI's "?" confidence flag from handwritten/unclear dates
+      const stripUncertain = (d?: string): { value: string; uncertain: boolean } => {
+        if (!d) return { value: '', uncertain: false };
+        const trimmed = d.trim();
+        if (trimmed.startsWith('?')) return { value: trimmed.slice(1).trim(), uncertain: true };
+        return { value: trimmed, uncertain: false };
+      };
+      const applyUncertainFlags = (records?: { name: string; date: string; nextDate?: string; dateUncertain?: boolean; nextDateUncertain?: boolean }[]) => {
+        records?.forEach(r => {
+          const d = stripUncertain(r.date);
+          r.date = d.value;
+          r.dateUncertain = d.uncertain;
+          if (r.nextDate) {
+            const nd = stripUncertain(r.nextDate);
+            r.nextDate = nd.value;
+            r.nextDateUncertain = nd.uncertain;
+          }
+        });
+      };
+      applyUncertainFlags(parsed.vaccines);
+      applyUncertainFlags(parsed.worming);
+
       if (parsed.vaccines) {
         parsed.vaccines = parsed.vaccines.filter((v) => {
           if (!v.date) return false;
@@ -160,6 +184,7 @@ CRITICAL rules:
           // Clear nextDate if it's before or same as date
           if (v.nextDate && v.date && toISO(v.nextDate) <= toISO(v.date)) {
             v.nextDate = undefined;
+            v.nextDateUncertain = undefined;
           }
           return v;
         });
@@ -193,6 +218,19 @@ CRITICAL rules:
     borderRadius: 6, border: "1px solid #ddd",
     fontSize: 13, outline: "none", background: "#fafafa",
   };
+
+  // Heuristic: does this DD-MM-YYYY date look like it might need double-checking?
+  // (single digit day/month, 2-digit year, or any other unexpected format)
+  const isDateFormatUncertain = (d?: string): boolean => {
+    if (!d) return false;
+    const parts = d.split('-');
+    if (parts.length !== 3) return true;
+    const [day, month, year] = parts;
+    return day.length !== 2 || month.length !== 2 || year.length !== 4;
+  };
+
+  const dateFieldStyle = (uncertain: boolean): React.CSSProperties =>
+    uncertain ? { ...IS, border: "1.5px solid #FFA726", background: "#FFF8E1" } : IS;
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -302,7 +340,10 @@ CRITICAL rules:
             {result.vaccines && result.vaccines.length > 0 && (
               <div style={{ background: "#f8f8f8", borderRadius: 10, padding: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#534AB7", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>💉 Vaccine Records ({result.vaccines.length})</div>
-                {result.vaccines.map((v, i) => (
+                {result.vaccines.map((v, i) => {
+                  const dateUncertain = v.dateUncertain || isDateFormatUncertain(v.date);
+                  const nextDateUncertain = v.nextDateUncertain || isDateFormatUncertain(v.nextDate);
+                  return (
                   <div key={i} style={{ background: "#fff", borderRadius: 8, padding: "8px 10px", marginBottom: 6, border: "1px solid #eee" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 6 }}>
                       <div>
@@ -310,16 +351,19 @@ CRITICAL rules:
                         <input value={v.name} onChange={e => { const vx = [...result.vaccines!]; vx[i] = { ...vx[i], name: e.target.value }; setResult(p => p ? { ...p, vaccines: vx } : p); }} style={IS} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Date Given</div>
-                        <input value={v.date} onChange={e => { const vx = [...result.vaccines!]; vx[i] = { ...vx[i], date: e.target.value }; setResult(p => p ? { ...p, vaccines: vx } : p); }} style={IS} />
+                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Date Given {dateUncertain && "⚠️"}</div>
+                        <input value={v.date} onChange={e => { const vx = [...result.vaccines!]; vx[i] = { ...vx[i], date: e.target.value, dateUncertain: false }; setResult(p => p ? { ...p, vaccines: vx } : p); }} style={dateFieldStyle(dateUncertain)} />
+                        {v.dateUncertain && <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>⚠️ Please verify</div>}
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Next Due</div>
-                        <input value={v.nextDate || ""} onChange={e => { const vx = [...result.vaccines!]; vx[i] = { ...vx[i], nextDate: e.target.value }; setResult(p => p ? { ...p, vaccines: vx } : p); }} style={IS} />
+                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Next Due {nextDateUncertain && "⚠️"}</div>
+                        <input value={v.nextDate || ""} onChange={e => { const vx = [...result.vaccines!]; vx[i] = { ...vx[i], nextDate: e.target.value, nextDateUncertain: false }; setResult(p => p ? { ...p, vaccines: vx } : p); }} style={dateFieldStyle(nextDateUncertain)} />
+                        {v.nextDateUncertain && <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>⚠️ Please verify</div>}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -327,7 +371,10 @@ CRITICAL rules:
             {result.worming && result.worming.length > 0 && (
               <div style={{ background: "#f8f8f8", borderRadius: 10, padding: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#534AB7", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>🐛 Worming Records ({result.worming.length})</div>
-                {result.worming.map((w, i) => (
+                {result.worming.map((w, i) => {
+                  const dateUncertain = w.dateUncertain || isDateFormatUncertain(w.date);
+                  const nextDateUncertain = w.nextDateUncertain || isDateFormatUncertain(w.nextDate);
+                  return (
                   <div key={i} style={{ background: "#fff", borderRadius: 8, padding: "8px 10px", marginBottom: 6, border: "1px solid #eee" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 6 }}>
                       <div>
@@ -335,16 +382,19 @@ CRITICAL rules:
                         <input value={w.name} onChange={e => { const wx = [...result.worming!]; wx[i] = { ...wx[i], name: e.target.value }; setResult(p => p ? { ...p, worming: wx } : p); }} style={IS} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Date Given</div>
-                        <input value={w.date} onChange={e => { const wx = [...result.worming!]; wx[i] = { ...wx[i], date: e.target.value }; setResult(p => p ? { ...p, worming: wx } : p); }} style={IS} />
+                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Date Given {dateUncertain && "⚠️"}</div>
+                        <input value={w.date} onChange={e => { const wx = [...result.worming!]; wx[i] = { ...wx[i], date: e.target.value, dateUncertain: false }; setResult(p => p ? { ...p, worming: wx } : p); }} style={dateFieldStyle(dateUncertain)} />
+                        {w.dateUncertain && <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>⚠️ Please verify</div>}
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Next Due</div>
-                        <input value={w.nextDate || ""} onChange={e => { const wx = [...result.worming!]; wx[i] = { ...wx[i], nextDate: e.target.value }; setResult(p => p ? { ...p, worming: wx } : p); }} style={IS} />
+                        <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>Next Due {nextDateUncertain && "⚠️"}</div>
+                        <input value={w.nextDate || ""} onChange={e => { const wx = [...result.worming!]; wx[i] = { ...wx[i], nextDate: e.target.value, nextDateUncertain: false }; setResult(p => p ? { ...p, worming: wx } : p); }} style={dateFieldStyle(nextDateUncertain)} />
+                        {w.nextDateUncertain && <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>⚠️ Please verify</div>}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
