@@ -52,9 +52,21 @@ type DocItem = {id:string;name:string;docType:string;date:string;url:string;file
 type HeatRecord = {id:string;lastHeat:string;nextHeat:string;cycleLength:string;notes:string;readyToMate:string;matingDate:string;expectedWhelp:string;actualWhelp:string};
 type Puppy = {id:string;name:string;gender:"Male"|"Female"|"";colour:string;collarColour:string;weight:string;photo:string;status:string;buyer:any;vaccines:VaccineRecord[];wormRecords:WormRecord[];documents:DocItem[]};
 type Litter = {id:string;litterId:string;dob:string;sire:string;dam:string;maleCount:string;femaleCount:string;notes:string;puppies:Puppy[]};
-type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[];litters:Litter[]};
+type HipScoreRecord = {date:string;left:string;right:string;total:string;certNumber:string;docId:string};
+type ElbowGradeRecord = {date:string;left:string;right:string;certNumber:string;docId:string};
+type DnaTestRecord = {id:string;provider:string;testName:string;result:string;date:string;certNumber:string;docId:string};
+type EyeTestRecord = {date:string;result:string;expiry:string;certNumber:string;docId:string};
+type HealthTesting = {hipScore:HipScoreRecord;elbowGrade:ElbowGradeRecord;dnaTests:DnaTestRecord[];eyeTest:EyeTestRecord};
+type Dog = {id:string;name:string;callName:string;breed:string;dob:string;weight:string;chipNumber:string;regNumber:string;gender:string;color:string;avatar:string;kennel:string;vaccines:VaccineRecord[];wormRecords:WormRecord[];healthNotes:string;healthTesting:HealthTesting;gallery:MediaItem[];documents:DocItem[];heatRecords:HeatRecord[];litters:Litter[]};
 
-const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",gallery:[],documents:[],heatRecords:[],litters:[]});
+const emptyHealthTesting = (): HealthTesting => ({
+  hipScore:{date:"",left:"",right:"",total:"",certNumber:"",docId:""},
+  elbowGrade:{date:"",left:"",right:"",certNumber:"",docId:""},
+  dnaTests:[],
+  eyeTest:{date:"",result:"",expiry:"",certNumber:"",docId:""},
+});
+
+const newDog = (id:string): Dog => ({id,name:"",callName:"",breed:"",dob:"",weight:"",chipNumber:"",regNumber:"",gender:"",color:"",avatar:"",kennel:"",vaccines:[],wormRecords:[],healthNotes:"",healthTesting:emptyHealthTesting(),gallery:[],documents:[],heatRecords:[],litters:[]});
 const genId = () => Date.now().toString(36).toUpperCase();
 
 const uploadToStorage = async (path: string, dataUrl: string): Promise<string> => {
@@ -89,7 +101,7 @@ const compressImage = (file: File, maxWidth=800, quality=0.7): Promise<string> =
 export default function DogProfile() {
   const [dogs,setDogs] = useState<Dog[]>([]);
   const [showScanner,setShowScanner] = useState(false);
-  const [healthSubTab,setHealthSubTab] = useState<"health"|"vaccine"|"worming">("health");
+  const [healthSubTab,setHealthSubTab] = useState<"health"|"vaccine"|"worming"|"testing">("health");
   const [loadingData,setLoadingData] = useState(true);
   const [syncing,setSyncing] = useState(false);
   const [syncMsg,setSyncMsg] = useState("");
@@ -105,6 +117,10 @@ export default function DogProfile() {
   const [showAddWorm,setShowAddWorm] = useState(false);
   const [editWormId,setEditWormId] = useState<string|null>(null);
   const [editWorm,setEditWorm] = useState({name:"",date:"",nextDate:"",notes:""});
+  const [newDna,setNewDna] = useState({provider:"",testName:"",result:"",date:"",certNumber:"",docId:""});
+  const [showAddDna,setShowAddDna] = useState(false);
+  const [editDnaId,setEditDnaId] = useState<string|null>(null);
+  const [editDna,setEditDna] = useState({provider:"",testName:"",result:"",date:"",certNumber:"",docId:""});
   const [newHeat,setNewHeat] = useState({lastHeat:"",nextHeat:"",cycleLength:"",notes:"",readyToMate:"",matingDate:"",expectedWhelp:"",actualWhelp:""});
   const [showAddHeat,setShowAddHeat] = useState(false);
   const [search,setSearch] = useState("");
@@ -253,6 +269,10 @@ export default function DogProfile() {
   const addWorm = () => { if(!newWorm.name||!newWorm.date||!activeDog)return; updateDog("wormRecords",[...(activeDog.wormRecords||[]),{id:genId(),...newWorm}]); setNewWorm({name:"",date:"",nextDate:"",notes:""}); setShowAddWorm(false); };
   const saveEditWorm = (id:string) => { if(!activeDog)return; updateDog("wormRecords",(activeDog.wormRecords||[]).map(w=>w.id===id?{...w,...editWorm}:w)); setEditWormId(null); };
 
+  const updateHealthTesting = (f:keyof HealthTesting,v:any) => { if(!activeDog)return; updateDog("healthTesting",{...(activeDog.healthTesting||emptyHealthTesting()),[f]:v}); };
+  const addDnaTest = () => { if(!newDna.testName||!newDna.date||!activeDog)return; const ht=activeDog.healthTesting||emptyHealthTesting(); updateHealthTesting("dnaTests",[...(ht.dnaTests||[]),{id:genId(),...newDna}]); setNewDna({provider:"",testName:"",result:"",date:"",certNumber:"",docId:""}); setShowAddDna(false); };
+  const saveEditDna = (id:string) => { if(!activeDog)return; const ht=activeDog.healthTesting||emptyHealthTesting(); updateHealthTesting("dnaTests",(ht.dnaTests||[]).map(t=>t.id===id?{...t,...editDna}:t)); setEditDnaId(null); };
+
   const handleAvatar = async (e:React.ChangeEvent<HTMLInputElement>) => {
     const f=e.target.files?.[0]; if(!f)return;
     const compressed=await compressImage(f,400,0.85);
@@ -306,6 +326,16 @@ export default function DogProfile() {
   );
   const lbl = (t:string) => <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4}}>{t}</div>;
   const docIcon = (ft:string) => ft.includes("pdf")?"📄":ft.includes("image")?"🖼️":ft.includes("word")?"📝":"📎";
+  const certDocSelect = (val:string,onChange:(v:string)=>void) => (
+    <div>
+      {lbl("Linked Document")}
+      <select value={val} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}>
+        <option value="">-- None --</option>
+        {(activeDog?.documents||[]).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>
+      {!(activeDog?.documents||[]).length&&<div style={{fontSize:10,color:"var(--color-text-tertiary)",marginTop:2}}>Upload certificates in the Documents tab to link them here.</div>}
+    </div>
+  );
 
   const urgencyColor = (d:number) => {
     if(d<0) return{bg:"#FCEBEB",border:"#F09595",text:"#A32D2D",badge:"#E24B4A"};
@@ -493,6 +523,7 @@ export default function DogProfile() {
               <button onClick={()=>setHealthSubTab("health")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="health"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="health"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="health"?"#3C3489":"var(--color-text-secondary)"}}>🩺 Health Notes</button>
               <button onClick={()=>setHealthSubTab("vaccine")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="vaccine"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="vaccine"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="vaccine"?"#3C3489":"var(--color-text-secondary)"}}>💉 Vaccines</button>
               <button onClick={()=>setHealthSubTab("worming")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="worming"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="worming"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="worming"?"#3C3489":"var(--color-text-secondary)"}}>🐛 Worming</button>
+              <button onClick={()=>setHealthSubTab("testing")} style={{padding:"5px 10px",borderRadius:"var(--border-radius-md)",fontSize:12,cursor:"pointer",border:healthSubTab==="testing"?"1.5px solid #534AB7":"1.5px solid var(--color-border-tertiary)",background:healthSubTab==="testing"?"#EEEDFE":"var(--color-background-primary)",color:healthSubTab==="testing"?"#3C3489":"var(--color-text-secondary)"}}>🧪 Health Testing</button>
             </div>
             {healthSubTab==="health"&&(
             <div>
@@ -642,6 +673,113 @@ export default function DogProfile() {
               )}
             </div>
           )}
+
+            {healthSubTab==="testing"&&(()=>{
+              const ht=activeDog.healthTesting||emptyHealthTesting();
+              return (
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+                {/* Hip Score */}
+                <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>🦴 Hip Score</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>{lbl("Date Tested")}<input type="date" value={ht.hipScore.date} onChange={e=>updateHealthTesting("hipScore",{...ht.hipScore,date:e.target.value})} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                    <div>{lbl("Certificate Number")}{inp(ht.hipScore.certNumber,v=>updateHealthTesting("hipScore",{...ht.hipScore,certNumber:v}),"e.g. AVA/ASBA 12345")}</div>
+                    <div>{lbl("Left Hip Score")}{inp(ht.hipScore.left,v=>updateHealthTesting("hipScore",{...ht.hipScore,left:v}),"e.g. 4")}</div>
+                    <div>{lbl("Right Hip Score")}{inp(ht.hipScore.right,v=>updateHealthTesting("hipScore",{...ht.hipScore,right:v}),"e.g. 5")}</div>
+                    <div>{lbl("Total Score")}{inp(ht.hipScore.total,v=>updateHealthTesting("hipScore",{...ht.hipScore,total:v}),"e.g. 9")}</div>
+                  </div>
+                  {certDocSelect(ht.hipScore.docId,v=>updateHealthTesting("hipScore",{...ht.hipScore,docId:v}))}
+                </div>
+
+                {/* Elbow Grade */}
+                <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>💪 Elbow Grade</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>{lbl("Date Tested")}<input type="date" value={ht.elbowGrade.date} onChange={e=>updateHealthTesting("elbowGrade",{...ht.elbowGrade,date:e.target.value})} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                    <div>{lbl("Certificate Number")}{inp(ht.elbowGrade.certNumber,v=>updateHealthTesting("elbowGrade",{...ht.elbowGrade,certNumber:v}),"e.g. AVA/ASBA 12345")}</div>
+                    <div>{lbl("Left Elbow Grade")}{inp(ht.elbowGrade.left,v=>updateHealthTesting("elbowGrade",{...ht.elbowGrade,left:v}),"e.g. 0")}</div>
+                    <div>{lbl("Right Elbow Grade")}{inp(ht.elbowGrade.right,v=>updateHealthTesting("elbowGrade",{...ht.elbowGrade,right:v}),"e.g. 0")}</div>
+                  </div>
+                  {certDocSelect(ht.elbowGrade.docId,v=>updateHealthTesting("elbowGrade",{...ht.elbowGrade,docId:v}))}
+                </div>
+
+                {/* Eye Test */}
+                <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>👁️ Eye Test</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>{lbl("Date Tested")}<input type="date" value={ht.eyeTest.date} onChange={e=>updateHealthTesting("eyeTest",{...ht.eyeTest,date:e.target.value})} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                    <div>{lbl("Expiry Date")}<input type="date" value={ht.eyeTest.expiry} onChange={e=>updateHealthTesting("eyeTest",{...ht.eyeTest,expiry:e.target.value})} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                    <div>{lbl("Result")}{inp(ht.eyeTest.result,v=>updateHealthTesting("eyeTest",{...ht.eyeTest,result:v}),"e.g. Clear")}</div>
+                    <div>{lbl("Certificate Number")}{inp(ht.eyeTest.certNumber,v=>updateHealthTesting("eyeTest",{...ht.eyeTest,certNumber:v}),"e.g. ECVO 12345")}</div>
+                  </div>
+                  {certDocSelect(ht.eyeTest.docId,v=>updateHealthTesting("eyeTest",{...ht.eyeTest,docId:v}))}
+                </div>
+
+                {/* DNA Tests */}
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>🧬 DNA Tests</div>
+                  {(ht.dnaTests||[]).length===0&&!showAddDna&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--color-text-tertiary)",fontSize:13}}>No DNA test records yet</div>}
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {(ht.dnaTests||[]).map(t=>{
+                      if(editDnaId===t.id) return(
+                        <div key={t.id} style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-md)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+                          <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Edit DNA Test</div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                            <div>{lbl("Provider")}{inp(editDna.provider,v=>setEditDna(p=>({...p,provider:v})),"e.g. Orivet, Embark")}</div>
+                            <div>{lbl("Test Name")}{inp(editDna.testName,v=>setEditDna(p=>({...p,testName:v})),"e.g. PRA, DM")}</div>
+                            <div>{lbl("Result")}{inp(editDna.result,v=>setEditDna(p=>({...p,result:v})),"e.g. Clear")}</div>
+                            <div>{lbl("Date Tested")}<input type="date" value={editDna.date} onChange={e=>setEditDna(p=>({...p,date:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                            <div>{lbl("Certificate Number")}{inp(editDna.certNumber,v=>setEditDna(p=>({...p,certNumber:v})),"Certificate / report number")}</div>
+                          </div>
+                          {certDocSelect(editDna.docId,v=>setEditDna(p=>({...p,docId:v})))}
+                          <div style={{display:"flex",gap:8}}>
+                            <button onClick={()=>saveEditDna(t.id)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:12,cursor:"pointer"}}>Save</button>
+                            <button onClick={()=>setEditDnaId(null)} style={{flex:1,padding:"7px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:12,cursor:"pointer"}}>Cancel</button>
+                          </div>
+                        </div>
+                      );
+                      const linkedDoc=(activeDog.documents||[]).find(d=>d.id===t.docId);
+                      return(
+                        <div key={t.id} style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-md)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:500}}>🧬 {t.testName}{t.provider&&` (${t.provider})`}</div>
+                            <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:2}}>Date tested: {formatDate(t.date)}{t.result&&` · Result: ${t.result}`}</div>
+                            {t.certNumber&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:1}}>Cert #: {t.certNumber}</div>}
+                            {linkedDoc&&<div style={{fontSize:11,color:"var(--color-text-tertiary)",marginTop:1}}>📎 {linkedDoc.name}</div>}
+                          </div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>{setEditDnaId(t.id);setEditDna({provider:t.provider,testName:t.testName,result:t.result,date:t.date,certNumber:t.certNumber,docId:t.docId});}} style={{background:"none",border:"1px solid var(--color-border-secondary)",borderRadius:6,cursor:"pointer",color:"var(--color-text-secondary)",fontSize:11,padding:"3px 8px"}}>Edit</button>
+                            <button onClick={()=>updateHealthTesting("dnaTests",(ht.dnaTests||[]).filter(x=>x.id!==t.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--color-text-tertiary)",fontSize:16}}>✕</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {showAddDna?(
+                    <div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                      <div style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>Add DNA Test</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                        <div>{lbl("Provider")}{inp(newDna.provider,v=>setNewDna(p=>({...p,provider:v})),"e.g. Orivet, Embark")}</div>
+                        <div>{lbl("Test Name")}{inp(newDna.testName,v=>setNewDna(p=>({...p,testName:v})),"e.g. PRA, DM")}</div>
+                        <div>{lbl("Result")}{inp(newDna.result,v=>setNewDna(p=>({...p,result:v})),"e.g. Clear")}</div>
+                        <div>{lbl("Date Tested")}<input type="date" value={newDna.date} onChange={e=>setNewDna(p=>({...p,date:e.target.value}))} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,outline:"none"}}/></div>
+                        <div>{lbl("Certificate Number")}{inp(newDna.certNumber,v=>setNewDna(p=>({...p,certNumber:v})),"Certificate / report number")}</div>
+                      </div>
+                      {certDocSelect(newDna.docId,v=>setNewDna(p=>({...p,docId:v})))}
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={addDnaTest} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"none",background:"#534AB7",color:"#fff",fontSize:13,cursor:"pointer"}}>Add</button>
+                        <button onClick={()=>setShowAddDna(false)} style={{flex:1,padding:"8px",borderRadius:"var(--border-radius-md)",border:"1px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                      </div>
+                    </div>
+                  ):(
+                    <button onClick={()=>setShowAddDna(true)} style={{width:"100%",padding:"10px",borderRadius:"var(--border-radius-md)",border:"1.5px dashed var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-secondary)",fontSize:13,cursor:"pointer"}}>+ Add DNA Test</button>
+                  )}
+                </div>
+
+              </div>
+              );
+            })()}
 
             </div>
           )}
