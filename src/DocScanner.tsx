@@ -92,7 +92,7 @@ Return this exact JSON structure (use null for missing fields, empty array [] fo
 Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024" convert to "2024-06-15".`;
 
       const body: any = {
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-5",
         max_tokens: 1000,
         messages: [{
           role: "user",
