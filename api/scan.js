@@ -18,7 +18,6 @@ export default async function handler(req, res) {
   try {
     const { messages, model, max_tokens } = req.body;
 
-    // Check if request has a document/image
     let base64Data = null;
     let isDocument = false;
 
@@ -37,7 +36,6 @@ export default async function handler(req, res) {
     }
 
     if (isDocument && base64Data) {
-      // Step 1: Textract OCR
       const textractClient = new TextractClient({
         region: awsRegion,
         credentials: { accessKeyId: awsAccessKey, secretAccessKey: awsSecretKey },
@@ -53,12 +51,16 @@ export default async function handler(req, res) {
           ?.filter(b => b.BlockType === "LINE")
           .map(b => b.Text || "")
           .join("\n") || "";
+        
+        // LOG OCR output to Vercel logs
+        console.log("=== TEXTRACT OCR OUTPUT ===");
+        console.log(extractedText);
+        console.log("=== END OCR ===");
       } catch (err) {
         console.error("Textract error:", err.message);
       }
 
       if (extractedText) {
-        // Step 2: Claude parses OCR text
         const textPrompt = messages
           .flatMap(m => Array.isArray(m.content)
             ? m.content.filter(c => c.type === "text").map(c => c.text)
@@ -87,7 +89,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fallback: pass through directly to Anthropic
+    // Fallback
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
