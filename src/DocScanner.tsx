@@ -96,40 +96,39 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
       const isImage = file.type.startsWith("image/");
       const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
-      const prompt = `You are extracting dog/pet information from a document or image. Extract ALL available information and return ONLY valid JSON with no markdown, no explanation.
-console.log('data:', JSON.stringify(data));
-Return this exact JSON structure (use null for missing fields, empty array [] for missing arrays):
+      const prompt = `You are extracting dog/pet information from a vaccination card or pet document. Return ONLY valid JSON, no markdown, no explanation.
+
+Read the document top-to-bottom, left-to-right. Do not swap fields between rows or columns.
+
+Return this exact JSON structure (null for missing fields, [] for missing arrays):
 {
-  "name": "dog's name or call name",
+  "name": "Dog name from PET'S NAME field only. If blank, return null. Never guess.",
   "breed": "breed name",
-  "dob": "date in YYYY-MM-DD format",
-  "gender": "Male or Female",
+  "dob": "Date of Birth from DOB field only - NOT a vaccine date. Format DD-MM-YYYY.",
+  "gender": "Male or Female from SEX field",
   "microchip": "microchip number",
-  "colour": "coat colour",
-  "weight": "weight in kg as number string",
-  "ownerName": "owner full name",
+  "colour": "coat colour from COLOUR field",
+  "weight": "weight in kg",
+  "ownerName": "owner name from OWNED BY field",
   "ownerPhone": "owner phone",
   "ownerEmail": "owner email",
   "ownerAddress": "owner address",
-  "vaccines": [{"name": "vaccine name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
+  "vaccines": [{"name": "vaccine product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
   "worming": [{"name": "product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
-  "registrationNumber": "Dogs Australia/ANKC/kennel club registration number. Format: org name + number, e.g. Dogs Australia 2100582145",
-"notes": "any other relevant notes"
+  "registrationNumber": "registration number if present",
+  "notes": "any other relevant notes"
 }
 
-Important rules:
-- The document may be rotated or sideways — read all text carefully regardless of orientation
-- DOB (Date of Birth) is a separate field from vaccine dates — do NOT use a vaccine visit date as DOB
-- If PET'S NAME is blank or not written, return null for name — do NOT invent or guess a name
-- 2-digit years: 25 = 2025, 26 = 2026 (current year is 2026)
-- Convert ALL dates to DD-MM-YYYY format (e.g. "31/3/25" → "31-03-2025", "6/8/26" → "06-08-2026")
-- For vaccination cards:
-  * Each "TREATMENT DATE" row = one vaccine entry → its date goes in "date" field
-  * "NEXT TREATMENT DUE" on that same row = booster reminder → goes in "nextDate" field
-  * Do NOT use a next-due date as a treatment date
-  * Vaccine name = product sticker/label on that row (e.g. Protech C3, Protech C4, Duramune)
-  * If no product name visible for a row, use "Vaccination 1", "Vaccination 2", etc
-- Only include vaccine entries where a real treatment date exists (was actually given)`;
+CRITICAL date rules:
+- 2-digit years: 25=2025, 26=2026. Format ALL dates as DD-MM-YYYY.
+- DOB is a fixed field at the top - never use a treatment date as DOB
+- For each TREATMENT row: DATE field = "date", NEXT TREATMENT DUE field = "nextDate"
+- Only include a vaccine entry if DATE was actually filled in (not blank)
+- Do NOT invent dates for blank rows
+- Read each row independently top-to-bottom: 1ST TREATMENT, 2ND TREATMENT, 3RD TREATMENT
+- The vaccine name comes from the product sticker/label on that same row
+- If no sticker visible for a row, name it "Vaccination 1", "Vaccination 2", etc
+- NEXT TREATMENT DUE is always a future date AFTER the treatment date - never before`;
 
       const body: any = {
         model: "claude-opus-4-5",
