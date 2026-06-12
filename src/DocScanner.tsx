@@ -69,31 +69,42 @@ export default function DocScanner({ onExtracted, onClose }: DocScannerProps) {
       const isImage = file.type.startsWith("image/");
       const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
-      const prompt = `You are extracting dog/pet information from a document or image. Extract ALL available information and return ONLY valid JSON with no markdown, no explanation.
+      const prompt = `You are extracting dog/pet information from a vaccination card or pet document. Return ONLY valid JSON, no markdown, no explanation.
 
-Return this exact JSON structure (use null for missing fields, empty array [] for missing arrays):
+Read the document top-to-bottom, left-to-right.
+
+Return this exact JSON structure (null for missing fields, [] for missing arrays):
 {
-  "name": "dog's name or call name",
+  "name": "Dog name from PET'S NAME field only. If blank, return null. Never guess.",
   "breed": "breed name",
-  "dob": "date in YYYY-MM-DD format",
-  "gender": "Male or Female",
+  "dob": "Date of Birth from DOB field only - NOT a vaccine date. Format DD-MM-YYYY.",
+  "gender": "Male or Female from SEX field",
   "microchip": "microchip number",
-  "colour": "coat colour",
-  "weight": "weight in kg as number string",
-  "ownerName": "owner full name",
+  "colour": "coat colour from COLOUR field",
+  "weight": "weight in kg",
+  "ownerName": "owner name from OWNED BY field",
   "ownerPhone": "owner phone",
   "ownerEmail": "owner email",
   "ownerAddress": "owner address",
-  "vaccines": [{"name": "vaccine name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
-  "worming": [{"name": "product name", "date": "YYYY-MM-DD", "nextDate": "YYYY-MM-DD or null"}],
+  "vaccines": [{"name": "vaccine product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
+  "worming": [{"name": "product name", "date": "DD-MM-YYYY", "nextDate": "DD-MM-YYYY or null"}],
+  "registrationNumber": "registration number if present",
   "notes": "any other relevant notes"
 }
 
-Important: Convert all dates to YYYY-MM-DD format. If a date is like "15/06/2024" convert to "2024-06-15".`;
+CRITICAL rules:
+- 2-digit years: 25=2025, 26=2026. Format ALL dates as DD-MM-YYYY.
+- DOB is at the top of the card - never use a treatment date as DOB
+- For each TREATMENT row: DATE = date field, NEXT TREATMENT DUE = nextDate field
+- Only include vaccine entry if DATE was actually written in (not blank)
+- Do NOT invent dates for blank rows
+- Read rows top-to-bottom: 1ST TREATMENT then 2ND TREATMENT then 3RD TREATMENT
+- Vaccine name = product sticker on that row
+- NEXT TREATMENT DUE is always after the treatment date`;
 
       const body: any = {
         model: "claude-opus-4-5",
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [{
           role: "user",
           content: [
